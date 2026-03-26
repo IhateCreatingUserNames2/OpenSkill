@@ -3,6 +3,7 @@
 **Universal Skill Distillation via MemCollab — Contrastive Trajectory Analysis**
 
 > *Based on: "MEMCOLLAB: Cross-Agent Memory Collaboration via Contrastive Trajectory Distillation" (arxiv:2603.23234)*
+<img width="1891" height="834" alt="image" src="https://github.com/user-attachments/assets/f80ad317-26a7-4068-b2cf-6eb5d0408b1d" />
 
 ---
 
