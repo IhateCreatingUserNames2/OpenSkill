@@ -2,8 +2,14 @@
 
 **Universal Skill Distillation via MemCollab — Contrastive Trajectory Analysis**
 
+
+DEMO PROTOTYPE:  https://openskill.onrender.com/
+
+
 > *Based on: "MEMCOLLAB: Cross-Agent Memory Collaboration via Contrastive Trajectory Distillation" (arxiv:2603.23234)*
 <img width="1891" height="834" alt="image" src="https://github.com/user-attachments/assets/f80ad317-26a7-4068-b2cf-6eb5d0408b1d" />
+<img width="1525" height="812" alt="image" src="https://github.com/user-attachments/assets/2e5c0a82-a5ea-45ae-860d-5ed136ba88ed" />
+
 
 ---
 
