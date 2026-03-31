@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SkillCrafter — Universal Skill Distillation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080c10;
+    --surface: #0d1318;
+    --surface2: #111820;
+    --border: #1e2d3d;
+    --accent: #00e5ff;
+    --accent2: #7c3aed;
+    --accent3: #f59e0b;
+    --success: #10b981;
+    --text: #e2eaf4;
+    --muted: #556272;
+    --weak: #f59e0b;
+    --strong: #00e5ff;
+    --font-display: 'Syne', sans-serif;
+    --font-mono: 'Space Mono', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: relative;
+    z-index: 10;
+    padding: 32px 48px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    backdrop-filter: blur(12px);
+  }
+
+  .logo {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .logo-mark {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 1.6rem;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -1px;
+  }
+  .logo-tag {
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+  .paper-link {
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-decoration: none;
+    letter-spacing: 1px;
+    padding: 6px 14px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    transition: all 0.2s;
+  }
+  .paper-link:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  /* ── MAIN LAYOUT ── */
+  main {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 0;
+    min-height: calc(100vh - 89px);
+  }
+
+  /* ── LEFT PANEL ── */
+  .left-panel {
+    padding: 40px 48px;
+    border-right: 1px solid var(--border);
+    overflow-y: auto;
+  }
+
+  .hero-title {
+    font-family: var(--font-display);
+    font-size: 2.8rem;
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 12px;
+    letter-spacing: -1px;
+  }
+  .hero-title span {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .hero-sub {
+    font-size: 0.8rem;
+    color: var(--muted);
+    line-height: 1.7;
+    max-width: 520px;
+    margin-bottom: 36px;
+  }
+
+  /* ── PIPELINE VISUAL ── */
+  .pipeline {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 36px;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+  .pipe-step {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .pipe-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    transition: all 0.3s;
+  }
+  .pipe-icon.weak { border-color: var(--weak); color: var(--weak); }
+  .pipe-icon.strong { border-color: var(--strong); color: var(--strong); }
+  .pipe-icon.contrast { border-color: var(--accent2); color: var(--accent2); }
+  .pipe-icon.output { border-color: var(--success); color: var(--success); }
+  .pipe-label {
+    font-size: 0.58rem;
+    color: var(--muted);
+    text-align: center;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    max-width: 60px;
+  }
+  .pipe-arrow {
+    flex-shrink: 0;
+    width: 32px;
+    height: 1px;
+    background: linear-gradient(90deg, var(--border), transparent);
+    margin: 0 4px;
+    align-self: center;
+    margin-bottom: 28px;
+    position: relative;
+  }
+  .pipe-arrow::after {
+    content: '▸';
+    position: absolute;
+    right: -4px;
+    top: -8px;
+    font-size: 0.7rem;
+    color: var(--border);
+  }
+
+  /* ── FORM ── */
+  .craft-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .field-label {
+    font-size: 0.65rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .field-label .badge {
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.55rem;
+    letter-spacing: 1px;
+  }
+  .badge.weak { background: rgba(245,158,11,0.15); color: var(--weak); border: 1px solid rgba(245,158,11,0.3); }
+  .badge.strong { background: rgba(0,229,255,0.1); color: var(--strong); border: 1px solid rgba(0,229,255,0.3); }
+  .badge.required { background: rgba(239,68,68,0.1); color: #f87171; border: 1px solid rgba(239,68,68,0.3); }
+
+  textarea, input[type="text"], input[type="password"] {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    padding: 14px 16px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    resize: vertical;
+    outline: none;
+    width: 100%;
+  }
+  textarea:focus, input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(0,229,255,0.08);
+  }
+  textarea { min-height: 120px; line-height: 1.6; }
+
+  .model-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .model-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .model-tag {
+    font-size: 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .dot.weak { background: var(--weak); }
+  .dot.strong { background: var(--strong); }
+
+  .craft-btn {
+    padding: 16px 32px;
+    border-radius: 8px;
+    border: none;
+    background: linear-gradient(135deg, var(--accent2) 0%, #5b21b6 100%);
+    color: white;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    position: relative;
+    overflow: hidden;
+  }
+  .craft-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .craft-btn:hover::before { opacity: 1; }
+  .craft-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(124,58,237,0.4); }
+  .craft-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  /* ── PROGRESS ── */
+  .progress-area {
+    margin-top: 24px;
+    display: none;
+  }
+  .progress-area.active { display: block; }
+  .progress-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.75rem;
+    color: var(--muted);
+    transition: color 0.3s;
+  }
+  .progress-step:last-child { border-bottom: none; }
+  .progress-step.active { color: var(--accent); }
+  .progress-step.done { color: var(--success); }
+  .step-icon { width: 20px; text-align: center; flex-shrink: 0; }
+  .spinner { animation: spin 1s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── RESULT ── */
+  .result-area {
+    margin-top: 28px;
+    display: none;
+  }
+  .result-area.active { display: block; }
+
+  .result-card {
+    background: var(--surface2);
+    border: 1px solid var(--success);
+    border-radius: 12px;
+    padding: 24px;
+    animation: slideUp 0.4s ease;
+  }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .result-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    gap: 16px;
+  }
+  .result-title {
+    font-family: var(--font-display);
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--success);
+  }
+  .result-domain {
+    font-size: 0.65rem;
+    color: var(--muted);
+    margin-top: 4px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .download-btn {
+    padding: 10px 20px;
+    border: 1px solid var(--success);
+    border-radius: 6px;
+    background: rgba(16,185,129,0.1);
+    color: var(--success);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  .download-btn:hover {
+    background: rgba(16,185,129,0.2);
+    box-shadow: 0 0 20px rgba(16,185,129,0.2);
+  }
+
+  .constraints-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 16px 0;
+  }
+  .constraint-item {
+    font-size: 0.75rem;
+    line-height: 1.6;
+    padding: 10px 14px;
+    background: rgba(124,58,237,0.08);
+    border-left: 2px solid var(--accent2);
+    border-radius: 0 6px 6px 0;
+    color: #c4b5fd;
+  }
+
+  .traj-tabs {
+    display: flex;
+    gap: 8px;
+    margin: 16px 0 10px;
+  }
+  .traj-tab {
+    padding: 6px 14px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .traj-tab.active.weak { border-color: var(--weak); color: var(--weak); background: rgba(245,158,11,0.08); }
+  .traj-tab.active.strong { border-color: var(--strong); color: var(--strong); background: rgba(0,229,255,0.06); }
+
+  .traj-content {
+    display: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    font-size: 0.72rem;
+    line-height: 1.7;
+    color: var(--text);
+    max-height: 280px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .traj-content.active { display: block; }
+
+  .error-box {
+    background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.3);
+    border-radius: 8px;
+    padding: 16px;
+    color: #fca5a5;
+    font-size: 0.78rem;
+    line-height: 1.6;
+    margin-top: 20px;
+    display: none;
+  }
+  .error-box.active { display: block; }
+
+  /* ── RIGHT PANEL ── */
+  .right-panel {
+    padding: 32px 28px;
+    overflow-y: auto;
+    background: var(--surface);
+  }
+
+  .panel-title {
+    font-size: 0.6rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .skill-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .skill-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+    animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .skill-card:hover { border-color: var(--accent); transform: translateX(2px); }
+
+  .skill-card-title {
+    font-family: var(--font-display);
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .skill-card-meta {
+    font-size: 0.62rem;
+    color: var(--muted);
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .skill-card-domain {
+    color: var(--accent2);
+    font-size: 0.6rem;
+    letter-spacing: 1px;
+  }
+
+  .skill-card-actions {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+  }
+  .mini-btn {
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: none;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    letter-spacing: 1px;
+  }
+  .mini-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .mini-btn.dl:hover { border-color: var(--success); color: var(--success); }
+
+  .empty-state {
+    text-align: center;
+    padding: 48px 16px;
+    color: var(--muted);
+    font-size: 0.75rem;
+    line-height: 1.8;
+  }
+  .empty-state .big-icon { font-size: 2.5rem; margin-bottom: 12px; }
+
+  /* ── SCROLLBAR ── */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+  /* ── GLOW ── */
+  .glow { animation: glow 2s ease-in-out infinite alternate; }
+  @keyframes glow {
+    from { text-shadow: 0 0 8px rgba(0,229,255,0.3); }
+    to   { text-shadow: 0 0 20px rgba(0,229,255,0.6); }
+  }
+
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; }
+    .right-panel { border-top: 1px solid var(--border); }
+    .left-panel { padding: 24px; }
+    header { padding: 20px 24px; }
+    .model-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <span class="logo-mark">SkillCrafter</span>
+    <span class="logo-tag">MemCollab Engine</span>
+  </div>
+  <div class="header-right">
+    <a class="paper-link" href="https://arxiv.org/abs/2603.23234" target="_blank">↗ arxiv:2603.23234</a>
+  </div>
+</header>
+
+<main>
+  <!-- ── LEFT: Craft Panel ── -->
+  <div class="left-panel">
+    <div class="hero-title">Universal<br><span>Skill Distillation</span></div>
+    <p class="hero-sub">
+      Two agents. One weak, one strong. Same task. Contrastive trajectories.<br>
+      Abstract reasoning constraints distilled into a model-agnostic <code>Skills.md</code>.
+    </p>
+
+    <!-- Pipeline Visual -->
+    <div class="pipeline">
+      <div class="pipe-step">
+        <div class="pipe-icon weak">🤖</div>
+        <div class="pipe-label">Weak Agent</div>
+      </div>
+      <div class="pipe-arrow"></div>
+      <div class="pipe-step">
+        <div class="pipe-icon strong">🧠</div>
+        <div class="pipe-label">Strong Agent</div>
+      </div>
+      <div class="pipe-arrow"></div>
+      <div class="pipe-step">
+        <div class="pipe-icon contrast">⚡</div>
+        <div class="pipe-label">Contrastive Analysis</div>
+      </div>
+      <div class="pipe-arrow"></div>
+      <div class="pipe-step">
+        <div class="pipe-icon output">📄</div>
+        <div class="pipe-label">Skills.md</div>
+      </div>
+    </div>
+
+    <!-- Form -->
+    <form class="craft-form" id="craftForm" onsubmit="return false;">
+
+      <div class="field-group">
+        <div class="field-label">
+          Task / Problem Domain
+        </div>
+        <textarea id="taskInput" placeholder="Describe the task or problem you want to extract skills from.&#10;&#10;Examples:&#10;• Solving probability problems with dependent events&#10;• Writing recursive algorithms with memoization&#10;• Debugging async Python code&#10;• Optimizing SQL queries for large datasets" required></textarea>
+      </div>
+
+      <div class="field-group">
+        <div class="field-label">
+          OpenRouter API Key <span class="badge required">Required</span>
+        </div>
+        <input type="password" id="apiKey" placeholder="sk-or-v1-..." autocomplete="off" required />
+      </div>
+
+      <div class="model-row">
+        <div class="model-field">
+          <div class="field-label">
+            <span class="dot weak"></span> Weak Model <span class="badge weak">Learner</span>
+          </div>
+          <input type="text" id="weakModel"
+            value="openai/gpt-oss-120b"
+            placeholder="openai/gpt-oss-120b" />
+        </div>
+        <div class="model-field">
+          <div class="field-label">
+            <span class="dot strong"></span> Strong Model <span class="badge strong">Teacher</span>
+          </div>
+          <input type="text" id="strongModel"
+            value="minimax/minimax-m2.5"
+            placeholder="minimax/minimax-m2.5" />
+        </div>
+      </div>
+
+      <button class="craft-btn" id="craftBtn" onclick="craftSkill()">
+        <span>⚗️</span>
+        <span>DISTILL SKILL</span>
+      </button>
+    </form>
+
+    <!-- Progress -->
+    <div class="progress-area" id="progressArea">
+      <div class="progress-step" id="step1">
+        <span class="step-icon">⬜</span>
+        <span>Running weak agent trajectory...</span>
+      </div>
+      <div class="progress-step" id="step2">
+        <span class="step-icon">⬜</span>
+        <span>Running strong agent trajectory...</span>
+      </div>
+      <div class="progress-step" id="step3">
+        <span class="step-icon">⬜</span>
+        <span>Contrastive analysis — extracting invariants & violations...</span>
+      </div>
+      <div class="progress-step" id="step4">
+        <span class="step-icon">⬜</span>
+        <span>Synthesizing model-agnostic skill...</span>
+      </div>
+      <div class="progress-step" id="step5">
+        <span class="step-icon">⬜</span>
+        <span>Rendering Skills.md & saving to library...</span>
+      </div>
+    </div>
+
+    <!-- Error -->
+    <div class="error-box" id="errorBox"></div>
+
+    <!-- Result -->
+    <div class="result-area" id="resultArea">
+      <div class="result-card" id="resultCard"></div>
+    </div>
+  </div>
+
+  <!-- ── RIGHT: Skill Library ── -->
+  <div class="right-panel">
+    <div class="panel-title">Skill Library</div>
+    <div class="skill-list" id="skillList">
+      <div class="empty-state">
+        <div class="big-icon">🗂️</div>
+        No skills distilled yet.<br>Craft your first skill to build<br>your universal skill library.
+      </div>
+    </div>
+  </div>
+
+
+  <div class="card mt-4">
+
+    <div class="card-header bg-success text-white">
+
+        🔍 Consultar Memória (Task-Aware Retrieval)
+
+    </div>
+
+    <div class="card-body">
+
+        <label>Qual problema você quer resolver agora?</label>
+
+        <textarea id="retrieveTask" class="form-control mb-2" rows="3" placeholder="Ex: Preciso criar um algoritmo de ordenação em Python..."></textarea>
+
+        <button id="btnRetrieve" class="btn btn-success">Buscar Skills Relevantes</button>
+
+
+
+        <div id="retrieveResult" class="mt-3" style="display:none;">
+
+            <h5>Classificação Identificada:</h5>
+
+            <span id="badgeCat" class="badge bg-primary"></span>
+
+            <span id="badgeSub" class="badge bg-secondary"></span>
+
+
+
+            <h5 class="mt-3">Skills Recomendadas:</h5>
+
+            <div id="recommendedSkills" class="list-group"></div>
+
+        </div>
+
+    </div>
+
+</div>
+</main>
+<script>
+
+document.getElementById('btnRetrieve').addEventListener('click', async () => {
+    const query = document.getElementById('retrieveTask').value;
+    const apiKey = document.getElementById('apiKey').value;
+
+    if(!query || !apiKey) {
+        showError("Preencha a tarefa e a API Key para a busca.");
+        return;
+    }
+
+    const btn = document.getElementById('btnRetrieve');
+    btn.innerHTML = '<span class="spinner">⟳</span> Navegando no Grafo (Neural-Socratic)...';
+    btn.disabled = true;
+
+    try {
+        const res = await fetch('/api/retrieve', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                query: query,
+                api_key: apiKey,
+                use_graph: true // Ativa S-Path-RAG e TurboQuant
+            })
+        });
+
+        const data = await res.json();
+
+        document.getElementById('retrieveResult').style.display = 'block';
+
+        // Se for o modo legado (sem grafo)
+        if (data.mode === 'category') {
+            document.getElementById('badgeCat').innerText = data.classification.category || "Geral";
+            document.getElementById('badgeSub').innerText = data.classification.subcategory || "Geral";
+        } else {
+            // S-PATH-RAG UI
+            document.getElementById('badgeCat').innerText = "Graph Path Found";
+            document.getElementById('badgeSub').innerText = `Confidence: ${(data.confidence * 100).toFixed(1)}%`;
+            document.getElementById('badgeSub').className = data.confidence >= 0.55 ? "badge bg-success" : "badge bg-warning";
+        }
+
+        const list = document.getElementById('recommendedSkills');
+        list.innerHTML = '';
+
+        if(data.mode === 'graph') {
+
+        list.innerHTML += `
+    <div style="background: rgba(16, 185, 129, 0.1); border: 1px solid var(--success); padding: 15px; border-radius: 8px; margin-top: 15px;">
+        <h5 style="color: var(--success); margin-bottom: 10px;">🤖 Resposta Gerada (Soft Latent Injection):</h5>
+        <div style="font-size: 0.85rem; color: var(--text); white-space: pre-wrap;">
+${data.final_answer}
+        </div>
+    </div>
+`;
+
+
+            // Mostra o rastro de raciocínio (Trace Socrático)
+            list.innerHTML += `
+                <div style="background: var(--surface2); padding: 12px; border-left: 3px solid var(--accent); margin-bottom: 15px; font-size: 0.75rem; color: var(--muted); white-space: pre-wrap;">
+<strong>Neural-Socratic Reasoning Trace:</strong>
+${data.reasoning_trace}
+                </div>
+            `;
+
+            // Mostra o caminho de skills
+            if (data.skills && data.skills.length > 0) {
+                let pathHtml = `<div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px; overflow-x: auto;">`;
+                data.skills.forEach((skill, index) => {
+                    pathHtml += `
+                        <div style="background: rgba(124,58,237,0.1); border: 1px solid var(--accent2); padding: 8px 12px; border-radius: 6px; white-space: nowrap; font-size: 0.75rem;">
+                            <strong>${skill.title}</strong>
+                        </div>
+                    `;
+                    if (index < data.skills.length - 1) {
+                        pathHtml += `<span style="color: var(--muted);">➔</span>`;
+                    }
+                });
+                pathHtml += `</div>`;
+                list.innerHTML += pathHtml;
+
+                // Mostra as skills detalhadas para download
+                data.skills.forEach(skill => {
+                    list.innerHTML += `
+                        <div class="list-group-item" style="background: var(--surface); border: 1px solid var(--border); margin-bottom: 8px; border-radius: 6px; padding: 12px;">
+                            <strong style="color: var(--text);">${skill.title}</strong><br>
+                            <small style="color: var(--muted);">${skill.domain}</small><br>
+                            <a href="/api/skills/${skill.id}/download" class="mini-btn dl mt-2" download="Skills.md">↓ Baixar Skill.md</a>
+                        </div>
+                    `;
+                });
+            } else {
+                list.innerHTML += '<div class="alert alert-warning">Nenhum caminho semântico encontrado no grafo. Crie mais skills!</div>';
+            }
+        }
+    } catch(err) {
+        showError("Erro na busca geométrica: " + err);
+    }
+
+    btn.innerText = "Buscar Skills Relevantes";
+    btn.disabled = false;
+});
+
+// ── Trace2Skill Evolution (Adicione isso na renderização dos cards) ──
+async function evolveSkill(skillId) {
+    const apiKey = document.getElementById('apiKey').value;
+    if(!apiKey) {
+        showError("Preencha a API Key no topo para evoluir a skill.");
+        return;
+    }
+
+    const tasksStr = prompt("Para evoluir a skill, digite 2 ou mais tarefas separadas por vírgula (O sistema rodará os agentes nestas tarefas para encontrar novos padrões):", "Ex: Criar um algoritmo de Dijkstra, Otimizar uma árvore AVL");
+    if (!tasksStr) return;
+
+    const tasks = tasksStr.split(',').map(t => t.trim()).filter(t => t);
+
+    alert("Iniciando Evolução em Frota (Trace2Skill). Isso levará um tempo. Olhe o console ou aguarde o alerta de sucesso.");
+
+    try {
+        const res = await fetch(`/api/evolve/${skillId}`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                api_key: apiKey,
+                tasks: tasks
+            })
+        });
+
+        const data = await res.json();
+        if(res.ok) {
+            alert(`🎉 Skill Evoluída com Sucesso!\n\nPatches aplicados: ${data.patch_count}\nTamanho da frota: ${data.fleet_size}\nTaxa de sucesso nas tarefas: ${(data.success_rate*100).toFixed(0)}%`);
+            loadSkillList(); // Recarrega a UI
+        } else {
+            alert("Erro na evolução: " + data.detail);
+        }
+    } catch (err) {
+        alert("Erro fatal: " + err);
+    }
+}
+
+</script>
+<script>
+// ── State ──
+let currentSkillId = null;
+
+// ── Progress helpers ──
+function setStep(stepNum, state) {
+  const el = document.getElementById(`step${stepNum}`);
+  if (!el) return;
+  el.className = 'progress-step ' + state;
+  const icon = el.querySelector('.step-icon');
+  if (state === 'active') icon.innerHTML = '<span class="spinner">⟳</span>';
+  else if (state === 'done') icon.textContent = '✓';
+  else icon.textContent = '⬜';
+}
+
+function resetSteps() {
+  for (let i = 1; i <= 5; i++) setStep(i, '');
+}
+
+// ── Craft ──
+async function craftSkill() {
+  const task = document.getElementById('taskInput').value.trim();
+  const apiKey = document.getElementById('apiKey').value.trim();
+  const weakModel = document.getElementById('weakModel').value.trim();
+  const strongModel = document.getElementById('strongModel').value.trim();
+
+  if (!task || !apiKey) {
+    showError('Please fill in the task and your OpenRouter API key.');
+    return;
+  }
+
+  const btn = document.getElementById('craftBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner">⟳</span><span>DISTILLING...</span>';
+
+  document.getElementById('progressArea').classList.add('active');
+  document.getElementById('resultArea').classList.remove('active');
+  document.getElementById('errorBox').classList.remove('active');
+  resetSteps();
+
+  // Simulate step progress (server does everything in one call)
+  setStep(1, 'active');
+  setTimeout(() => { setStep(1, 'done'); setStep(2, 'active'); }, 800);
+  setTimeout(() => { setStep(2, 'done'); setStep(3, 'active'); }, 4000);
+  setTimeout(() => { setStep(3, 'done'); setStep(4, 'active'); }, 10000);
+  setTimeout(() => { setStep(4, 'done'); setStep(5, 'active'); }, 16000);
+
+  try {
+    const resp = await fetch('/api/craft', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        task,
+        api_key: apiKey,
+        weak_model: weakModel || undefined,
+        strong_model: strongModel || undefined,
+      })
+    });
+
+    const data = await resp.json();
+
+    if (!resp.ok) {
+      throw new Error(data.detail || 'Server error');
+    }
+
+    setStep(5, 'done');
+
+    currentSkillId = data.skill_id;
+    renderResult(data);
+    loadSkillList();
+
+  } catch (err) {
+    for (let i = 1; i <= 5; i++) setStep(i, '');
+    showError(err.message || 'Unknown error occurred.');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<span>⚗️</span><span>DISTILL SKILL</span>';
+  }
+}
+
+// ── Render result ──
+function renderResult(data) {
+  const skill = data.skill;
+  const constraints = (data.constraints || '').split('\n').filter(l => l.trim());
+
+  const card = document.getElementById('resultCard');
+  card.innerHTML = `
+    <div class="result-header">
+      <div>
+        <div class="result-title">✦ ${escHtml(skill.title || 'Extracted Skill')}</div>
+        <div class="result-domain">${escHtml(skill.domain || 'General')}</div>
+      </div>
+      <a href="/api/skills/${data.skill_id}/download" class="download-btn" download="Skills.md">
+        ↓ Skills.md
+      </a>
+    </div>
+
+    <p style="font-size:0.78rem;color:var(--muted);line-height:1.6;margin-bottom:16px;">
+      ${escHtml(skill.description || '')}
+    </p>
+
+    <div style="font-size:0.6rem;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">
+      Normative Constraints
+    </div>
+    <ul class="constraints-list">
+      ${constraints.map(c => `<li class="constraint-item">${escHtml(c.replace(/^\d+[\.\)]\s*/, ''))}</li>`).join('')}
+    </ul>
+
+    <div class="traj-tabs">
+      <button class="traj-tab active weak" onclick="showTraj('weak', this)">🤖 Weak Agent</button>
+      <button class="traj-tab strong" onclick="showTraj('strong', this)">🧠 Strong Agent</button>
+    </div>
+    <div class="traj-content active" id="trajWeak">${escHtml(data.weak_trajectory || '')}</div>
+    <div class="traj-content" id="trajStrong">${escHtml(data.strong_trajectory || '')}</div>
+  `;
+
+  document.getElementById('resultArea').classList.add('active');
+  document.getElementById('resultArea').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function showTraj(which, btn) {
+  document.querySelectorAll('.traj-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.traj-content').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('trajWeak').classList.toggle('active', which === 'weak');
+  document.getElementById('trajStrong').classList.toggle('active', which === 'strong');
+}
+
+function showError(msg) {
+  const box = document.getElementById('errorBox');
+  box.textContent = '⚠️ ' + msg;
+  box.classList.add('active');
+}
+
+// ── Skill Library ──
+async function loadSkillList() {
+  try {
+    const resp = await fetch('/api/skills');
+    const skills = await resp.json();
+    const list = document.getElementById('skillList');
+
+    if (!skills.length) {
+      list.innerHTML = `<div class="empty-state"><div class="big-icon">🗂️</div>No skills yet.<br>Craft your first skill.</div>`;
+      return;
+    }
+
+    list.innerHTML = skills.map(s => `
+      <div class="skill-card">
+        <div class="skill-card-title">${escHtml(s.title || 'Unnamed Skill')}</div>
+        <div class="skill-card-meta">
+          <span>${escHtml(s.created_at?.slice(0,10) || '')}</span>
+        </div>
+        <div class="skill-card-meta" style="margin-top:3px;">
+          <span style="color:var(--weak);font-size:0.58rem;">🤖 ${escHtml((s.weak_model||'').split('/').pop())}</span>
+          <span style="color:var(--strong);font-size:0.58rem;">🧠 ${escHtml((s.strong_model||'').split('/').pop())}</span>
+        </div>
+       <div class="skill-card-actions">
+    <a href="/api/skills/${s.id}/download" class="mini-btn dl" download="Skills.md">↓ Download</a>
+    <button onclick="evolveSkill('${s.id}')" class="mini-btn" style="border-color: var(--accent3); color: var(--accent3);">⚡ Evoluir (Trace2Skill)</button>
+</div>
+      </div>
+    `).join('');
+  } catch (err) {
+    console.error('Failed to load skills:', err);
+  }
+}
+
+function escHtml(str) {
+  return String(str || '')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+// ── Init ──
+loadSkillList();
+</script>
+</body>
+</html>

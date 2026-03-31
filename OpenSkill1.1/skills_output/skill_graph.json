@@ -1,0 +1,11 @@
+{
+  "nodes": {
+    "a493a4b2": {
+      "title": "Raft-Traffic-Optimized Eventual Consistency",
+      "category": "Programming",
+      "subcategory": "System Design",
+      "domain": "Distributed Systems / Consensus Protocols"
+    }
+  },
+  "edges": []
+}
