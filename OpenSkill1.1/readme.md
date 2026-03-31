@@ -56,7 +56,7 @@ Skills are stored in a **Skill Graph**. S-PATH RAG allows the system to navigate
 The system successfully creates **Quantized Universal Skills**. Rather than simple "how-to" guides, it saves **compressed logical frameworks** indexed in a Knowledge Graph, ready for retrieval by any model seeking to optimize distributed systems logic.
 
 ## References
-* **S-Path-RAG**: Semantic-Aware Shortest-Path Retrieval Augmented Generation for Multi-Hop Knowledge Graph Question Answering
-* **TurboQuant**: Online Vector Quantization with Near-optimal Distortion Rate
-* **MemCollab**: Cross-Agent Memory Collaboration via Contrastive Trajectory Distillation
-* **Trace2Skill**: Distill Trajectory-Local Lessons into Transferable Agent Skills
+* **S-Path-RAG**: Semantic-Aware Shortest-Path Retrieval Augmented Generation for Multi-Hop Knowledge Graph Question Answering https://arxiv.org/abs/2603.23512 
+* **TurboQuant**: Online Vector Quantization with Near-optimal Distortion Rate https://arxiv.org/abs/2504.19874 
+* **MemCollab**: Cross-Agent Memory Collaboration via Contrastive Trajectory Distillation https://arxiv.org/abs/2603.23234 
+* **Trace2Skill**: Distill Trajectory-Local Lessons into Transferable Agent Skills https://arxiv.org/abs/2603.25158 
