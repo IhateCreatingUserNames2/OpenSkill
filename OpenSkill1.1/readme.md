@@ -1,5 +1,7 @@
 # The Universal Skill Crafter
 
+This is a Proof of Concept Prototype. 
+
 ## Overview
 The **Universal Skill Crafter** is an automated engine designed to extract, refine, and store "Universal Skills" from AI reasoning trajectories. By utilizing a heterogeneous multi-model approach, it distills high-level logic into an agent-agnostic format, ensuring that knowledge can be shared across diverse LLM architectures without "style contamination."
 
