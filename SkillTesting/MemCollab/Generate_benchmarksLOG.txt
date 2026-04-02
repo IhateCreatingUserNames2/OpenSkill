@@ -1,0 +1,53 @@
+E:\ProjetosPython\Aura2\.venv\Scripts\python.exe E:\ProjetosPython\OpenSkill\generate_benchmarks.py 
+🚀 Iniciando geração em massa de Skills (Benchmark MemCollab)...
+🔗 URL Alvo: http://localhost:8000/api/craft
+🤖 Weak Model:  meta-llama/llama-3.1-8b-instruct
+🧠 Strong Model: anthropic/claude-sonnet-4.6
+📦 Total de Tarefas: 6
+
+--------------------------------------------------
+⏳ Processando [1/6]: Dependent Probability Trap
+✅ Sucesso! (Tempo: 47.7s)
+   🏷️  Título da Skill: Combinatorial Probability with Grouped Draws Without Replacement
+   📁 Categoria: Mathematics > Probability
+   📄 Arquivo salvo: Combinatorial_Probability_with_Grouped_D_6bc4626b.md
+⏳ Pausando 5 segundos antes da próxima requisição...
+--------------------------------------------------
+⏳ Processando [2/6]: Number Theory Edge Case
+✅ Sucesso! (Tempo: 47.4s)
+   🏷️  Título da Skill: Modular Exponentiation for Last-N-Digits Problems
+   📁 Categoria: Mathematics > Number Theory
+   📄 Arquivo salvo: Modular_Exponentiation_for_Last-N-Digits_9c9ae2a6.md
+⏳ Pausando 5 segundos antes da próxima requisição...
+--------------------------------------------------
+⏳ Processando [3/6]: Overlapping Intervals Bug
+✅ Sucesso! (Tempo: 63.8s)
+   🏷️  Título da Skill: Merge Overlapping Intervals
+   📁 Categoria: Programming > Algorithms
+   📄 Arquivo salvo: Merge_Overlapping_Intervals_61e6e7e1.md
+⏳ Pausando 5 segundos antes da próxima requisição...
+--------------------------------------------------
+⏳ Processando [4/6]: Binary Search Infinite Loop
+✅ Sucesso! (Tempo: 66.7s)
+   🏷️  Título da Skill: Binary Search Boundary Convergence
+   📁 Categoria: Programming > Debugging
+   📄 Arquivo salvo: Binary_Search_Boundary_Convergence_b21549a8.md
+⏳ Pausando 5 segundos antes da próxima requisição...
+--------------------------------------------------
+⏳ Processando [5/6]: Multi-Constraint Scheduling
+✅ Sucesso! (Tempo: 229.4s)
+   🏷️  Título da Skill: Constraint-Propagating Meeting Scheduler
+   📁 Categoria: Logic/Reasoning > Planning
+   📄 Arquivo salvo: Constraint-Propagating_Meeting_Scheduler_cc2cd239.md
+⏳ Pausando 5 segundos antes da próxima requisição...
+--------------------------------------------------
+⏳ Processando [6/6]: Logic Puzzle: Zebra Variant
+✅ Sucesso! (Tempo: 223.6s)
+   🏷️  Título da Skill: Constraint-Propagating Deduction Matrix
+   📁 Categoria: Logic/Reasoning > Puzzles
+   📄 Arquivo salvo: Constraint-Propagating_Deduction_Matrix_6d6c449e.md
+
+🎉 Processo de Benchmark finalizado! Verifique sua pasta 'skills_output'.
+
+Process finished with exit code 0
+
