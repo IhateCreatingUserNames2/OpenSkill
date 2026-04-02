@@ -42,10 +42,7 @@ Results Analyzed by Gemini, LOGS X Skill Markdown. :
 
 
 
-Here is the translation of your log into English, maintaining the technical formatting and emojis:
-
----
-
+```text
 E:\ProjetosPython\Aura2\.venv\Scripts\python.exe E:\ProjetosPython\OpenSkill\ttttt_inference.py 
 🧪 **Starting MemCollab Inference Test...**
 🤖 **Test Model:** meta-llama/llama-3.1-8b-instruct
@@ -132,17 +129,14 @@ def merge_intervals(intervals):
     Merge overlapping intervals in a list of intervals.
 
     Args:
-        intervals (lis...
-```
+        intervals (lis...🔍 Searching for Relevant Skill in SkillCrafter (/api/retrieve)...
+✅ Skill Found: Interval Merging (Score: 5)
 
-🔍 **Searching for Relevant Skill in SkillCrafter (/api/retrieve)...**
-✅ **Skill Found:** Interval Merging (Score: 5)
-
-▶️ **TEST 2: Model WITH the Skill (Augmented)...**
-✅ **Response (Augmented):**
+▶️ TEST 2: Model WITH the Skill (Augmented)...
+✅ Response (Augmented):
 Here's the Python code that merges overlapping intervals:
 
-```python
+python
 def merge_intervals(intervals):
     # Sort the intervals by their start value
     intervals.sort(key=lambda x: x[0])
@@ -154,6 +148,6 @@ def merge_intervals(intervals):
             merged.append(current)
         else:
             # Otherwise, there is overlap...
-```
-
 Process finished with exit code 0
+
+´´´
