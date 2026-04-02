@@ -29,6 +29,8 @@ SkillCrafter implements the MemCollab pipeline as a web app. You provide a task/
 
 ## Setup
 
+** Download main.py, templates/index.html for UI. ** 
+
 ```bash
 # Install dependencies
 pip install -r requirements.txt
@@ -102,6 +104,8 @@ method: MemCollab Contrastive Trajectory Distillation
 This format is designed to be injected directly into any agent's system prompt or knowledge base.
 
 ---
+
+## Testings: https://github.com/IhateCreatingUserNames2/OpenSkill/tree/main/SkillTesting/MemCollab 
 
 ## The MemCollab Insight
 
