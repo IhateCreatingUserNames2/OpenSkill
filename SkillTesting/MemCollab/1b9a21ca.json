@@ -1,0 +1,11 @@
+{
+  "id": "1b9a21ca",
+  "title": "Binary Search Boundary Update Correctness",
+  "task": "Identify the bug in this Binary Search implementation and provide the corrected code. Explain why it fails:\ndef binary_s",
+  "category": "Programming",
+  "subcategory": "Debugging",
+  "created_at": "2026-04-02T08:29:32.937263",
+  "filename": "Binary_Search_Boundary_Update_Correctnes_1b9a21ca.md",
+  "weak_model": "meta-llama/llama-3.1-8b-instruct",
+  "strong_model": "anthropic/claude-sonnet-4.6"
+}

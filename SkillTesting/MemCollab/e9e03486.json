@@ -1,0 +1,11 @@
+{
+  "id": "e9e03486",
+  "title": "Constraint-Propagation Deduction Matrix Reasoning",
+  "task": "Three friends (Alice, Bob, Charlie) have different pets (Dog, Cat, Bird) and drive different colored cars (Red, Blue, Gr",
+  "category": "Logic/Reasoning",
+  "subcategory": "Puzzles",
+  "created_at": "2026-04-02T08:31:46.923864",
+  "filename": "Constraint-Propagation_Deduction_Matrix__e9e03486.md",
+  "weak_model": "meta-llama/llama-3.1-8b-instruct",
+  "strong_model": "anthropic/claude-sonnet-4.6"
+}
