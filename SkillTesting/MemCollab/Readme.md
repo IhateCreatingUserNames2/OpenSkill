@@ -75,7 +75,7 @@ The benchmark results confirm that **SkillCrafter** successfully "patches" the r
 
 4. **Run inference**
    - Execute `tttt_inference.py`
-   - This will run task questions comparing:
+   - This will run task questions for:
      - **MemCollab Text Injection** calls
      - **Vanilla** calls
    - *(Optional)* Edit the task questions as needed
