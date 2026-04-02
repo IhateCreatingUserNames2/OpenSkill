@@ -23,20 +23,14 @@ Results Analyzed by Gemini, LOGS X Skill Markdown. :
 ---
 
 ### 🚀 How to Reproduce
-You can now demonstrate the full **MemCollab** cycle using the provided benchmarks:
 
-1.  **Populate Knowledge:** Run `generate_benchmarks.py` to distill high-level skills (Interval Merging, Combinatorial Probability) into your database.
+1. ** Run Main.py **  https://github.com/IhateCreatingUserNames2/OpenSkill/blob/main/main.py or https://github.com/IhateCreatingUserNames2/OpenSkill/blob/main/SkillTesting/MemCollab/main.py 
+1.  **Populate Knowledge:** Run `generate_benchmarks.py` to distill high-level skills (Interval Merging, Combinatorial Probability) into your database. EDIT BENCHMARK_TASKS = [] . 
 2.  **Verify:** Run `test_inference.py`. 
     * **Vanilla:** Observe Llama-3.1-8B taking suboptimal or "lazy" paths.
-    * **Augmented:** Watch the model dynamically switch its reasoning strategy—shifting from sequential fractions to Combinatorics or automatically applying specific algorithmic invariants. 
+    * **Augmented:** Watch the model dynamically switch its reasoning strategy—shifting from sequential fractions to Combinatorics or automatically applying specific algorithmic invariants.  
 
 **The logs confirm the transition from weak inference to expert-level execution through memory augmentation.**
-
----
-
-**Would you like me to draft this as a formal GitHub Issue response or a README update for your project?**
-
-
 
 
 LOGS: 
