@@ -36,8 +36,10 @@ Results Analyzed by Gemini, LOGS X Skill Markdown. :
 
 
 
-########
-LOGS: ``` "
+###
+###
+###
+LOGS:
 E:\ProjetosPython\Aura2\.venv\Scripts\python.exe E:\ProjetosPython\OpenSkill\ttttt_inference.py 
 🧪 Iniciando Teste de Inferência do MemCollab...
 🤖 Modelo de Teste: meta-llama/llama-3.1-8b-instruct
