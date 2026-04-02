@@ -1,0 +1,11 @@
+{
+  "id": "cc2cd239",
+  "title": "Constraint-Propagating Meeting Scheduler",
+  "task": "Schedule 5 meetings (A, B, C, D, E) into 3 rooms (Room 1, Room 2, Room 3) between 9 AM and 11 AM. Each meeting is 1 hour",
+  "category": "Logic/Reasoning",
+  "subcategory": "Planning",
+  "created_at": "2026-04-02T09:08:23.372938",
+  "filename": "Constraint-Propagating_Meeting_Scheduler_cc2cd239.md",
+  "weak_model": "meta-llama/llama-3.1-8b-instruct",
+  "strong_model": "anthropic/claude-sonnet-4.6"
+}

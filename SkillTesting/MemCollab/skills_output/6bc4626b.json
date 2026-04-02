@@ -1,0 +1,11 @@
+{
+  "id": "6bc4626b",
+  "title": "Combinatorial Probability with Grouped Draws Without Replacement",
+  "task": "A bag contains 5 red balls and 3 blue balls. You draw 3 balls one by one WITHOUT replacement. What is the probability th",
+  "category": "Mathematics",
+  "subcategory": "Probability",
+  "created_at": "2026-04-02T09:01:16.128331",
+  "filename": "Combinatorial_Probability_with_Grouped_D_6bc4626b.md",
+  "weak_model": "meta-llama/llama-3.1-8b-instruct",
+  "strong_model": "anthropic/claude-sonnet-4.6"
+}

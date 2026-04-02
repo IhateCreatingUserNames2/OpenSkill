@@ -1,0 +1,11 @@
+{
+  "id": "9c9ae2a6",
+  "title": "Modular Exponentiation for Last-N-Digits Problems",
+  "task": "Find the last two digits of $7^{2024}$. Explain your reasoning step-by-step.",
+  "category": "Mathematics",
+  "subcategory": "Number Theory",
+  "created_at": "2026-04-02T09:02:08.501095",
+  "filename": "Modular_Exponentiation_for_Last-N-Digits_9c9ae2a6.md",
+  "weak_model": "meta-llama/llama-3.1-8b-instruct",
+  "strong_model": "anthropic/claude-sonnet-4.6"
+}
