@@ -59,7 +59,23 @@ The benchmark results confirm that **SkillCrafter** successfully "patches" the r
 
 ## 6. How to Reproduce 
 
-1- Download Main.py , templates/index.html for UI. 
-2- Run Main.py for the MemCollab Engine. 
-3- Run generate_benchmark.py It will Generate Skill MarkDowns and JSON.  ( Edit Benchmark Tasks for new Tasks or Different ones) 
-4- Run tttt_inference.py Wil Run Task Questions Against MemCollab Text Injection Calls and Vanilla calls.  ( Edit Tasks Questions ) 
+## Setup and Execution
+
+1. **Download the files**
+   - `Main.py`
+   - `templates/index.html` (for the UI)
+
+2. **Run the engine**
+   - Execute `Main.py` to start the **MemCollab Engine**
+
+3. **Generate benchmarks**
+   - Run `generate_benchmark.py`
+   - This will generate **Skills in Markdown** and **JSON**
+   - *(Optional)* Edit the benchmark tasks to add new ones or modify existing ones
+
+4. **Run inference**
+   - Execute `tttt_inference.py`
+   - This will run task questions comparing:
+     - **MemCollab Text Injection** calls
+     - **Vanilla** calls
+   - *(Optional)* Edit the task questions as needed
