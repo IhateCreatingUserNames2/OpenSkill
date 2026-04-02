@@ -37,7 +37,7 @@ Results Analyzed by Gemini, LOGS X Skill Markdown. :
 
 
 ########
-LOGS: 
+LOGS: "
 E:\ProjetosPython\Aura2\.venv\Scripts\python.exe E:\ProjetosPython\OpenSkill\ttttt_inference.py 
 🧪 Iniciando Teste de Inferência do MemCollab...
 🤖 Modelo de Teste: meta-llama/llama-3.1-8b-instruct
@@ -145,9 +145,10 @@ def merge_intervals(intervals):
             merged.append(current)
         else:
             # Otherwise, there is overlap...
-
+""
 
 Process finished with exit code 0
 
 
 
+""
