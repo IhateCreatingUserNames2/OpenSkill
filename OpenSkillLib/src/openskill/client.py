@@ -273,6 +273,11 @@ class OpenSkillClient:
 
         # 6. Construir metadados (A "Ficha do Personagem")
         from openskill.storage.base import SkillType
+        from openskill.core.crafter import _slugify  # Importe o slugify que criamos
+
+        # NOVO: O ID da skill agora é o nome legível no padrão Agent Skills!
+        raw_title = skill_data.get("title", "skill")
+        sid = _slugify(raw_title)
 
         safe_title = "".join(c if c.isalnum() or c in "-_" else "_" for c in skill_data.get("title", "skill"))[:40]
 
