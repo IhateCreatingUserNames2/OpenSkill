@@ -280,88 +280,66 @@ The resulting bundle has:
 
 ## Installation
 
-To get started with OpenSkill, ensure you have **Python 3.10+** installed on your system.
 
-### 1. Clone and Setup
-OpenSkill is designed as a modular library. You can clone the repository and install the dependencies directly:
+## Installation
+
+OpenSkill is built with modern Python packaging standards. You can install it in editable mode to use the CLI directly.
+
+### 1. Environment Setup
+We recommend using [uv](https://github.com/astral-sh/uv) for lightning-fast dependency management:
 
 ```bash
 # Clone the repository
 git clone https://github.com/IhateCreatingUserNames2/OpenSkill.git
 cd OpenSkill/OpenSkillLib
 
-# Create and activate a virtual environment (recommended)
-python -m venv .venv
-# On Windows:
-.venv\Scripts\activate
-# On Linux/macOS:
-source .venv/bin/activate
+# Install core package
+make install
 
-# Install core dependencies
-pip install -r requirements.txt
+# OR install with all optional dependencies (LLMs, GNNs, Server, LangChain)
+make install-all
 ```
 
-### 2. Configure Your Environment
-OpenSkill leverages LLMs for distillation, evolution, and embedding. We use **OpenRouter** as the default provider for maximum model flexibility.
+### 2. Configuration
+Set your API key to enable distillation and retrieval features:
 
-Set your API key as an environment variable:
-
-**Linux / macOS:**
 ```bash
+# Linux/macOS
 export OPENROUTER_API_KEY="sk-or-v1-..."
-```
 
-**Windows (PowerShell):**
-```powershell
+# Windows (PowerShell)
 $env:OPENROUTER_API_KEY="sk-or-v1-..."
 ```
 
-*(Tip: For persistent setup, add this export to your `.bashrc`, `.zshrc`, or Windows Environment Variables.)*
-
-### 3. Verify the CLI
-Once installed, you can access the `openskill` command-line interface to manage your skill library. Verify the installation by checking the version:
+### 3. Usage
+Once installed, the `openskill` command is available globally in your terminal:
 
 ```bash
-# Ensure you are inside the OpenSkillLib directory
-python -m openskill.cli --version
+# Check version
+openskill --version
+
+# Run retrieval with local injection
+openskill retrieve "How to design Circuit Breaker?" --local --mode auto
+
+# List all skills
+openskill list
 ```
 
-### 4. Quick-Start Commands
-The CLI is your primary tool for managing the lifecycle of your geometric skill memory. Here are the most common operations:
 
-**Create a new skill (MemCollab):**
-Distill a new skill from a natural language task.
-```bash
-python -m openskill.cli create "Implement an exponential backoff retry strategy"
-```
+---
 
-**Retrieve guidance for a query:**
-Search your knowledge graph using S-Path-RAG.
-```bash
-python -m openskill.cli retrieve "How do I handle network timeouts?" --mode auto
-```
+### Por que isso resolve tudo?
 
-**Evolve existing skills (Trace2Skill):**
-Improve an existing skill based on evidence from previous execution traces.
-```bash
-python -m openskill.cli evolve <skill-id> --tasks "task1,task2"
-```
+1. **`pyproject.toml` + Hatch:** O campo `[project.scripts]` no seu arquivo é a forma moderna (PEP 621) de definir o que antes era feito no `setup.py`. O `hatch` lerá isso e criará os *links* executáveis automaticamente.
+2. **`uv`:** Ao usar `make install` com `uv`, você garante que as dependências (`numpy`, `torch`, `click`, etc.) sejam instaladas em milissegundos.
+3. **Comando `openskill` direto:** Agora, quando o usuário rodar `make install`, o Python criará um link simbólico no seu ambiente virtual que aponta para `openskill.cli.main:cli`. 
+4. **Sem erros de import:** Ao usar `python -m openskill.cli.main` ou apenas `openskill`, você não terá mais os problemas de caminho (`can't open file`) que enfrentou antes, porque o sistema de pacotes Python gerencia o `PYTHONPATH` para você.
 
-**Manage Library:**
-List all installed skills or inspect the knowledge graph topology.
-```bash
-python -m openskill.cli list
-python -m openskill.cli graph
-```
+**Agora você pode rodar:**
+`openskill retrieve "How to design Circuit Breaker?" --local --mode auto`
+...diretamente de qualquer pasta, sem precisar referenciar o `python pil.py` ou `python train_scorer.py` o tempo todo (embora o pipeline `pil.py` ainda seja necessário para os processos longos de treino).
 
-### 5. Running the Full Pipeline
-For a complete automated experience—from embedding your skills to training the neural path scorer—use the provided pipeline script:
-
-```bash
-python pil.py --api-key $OPENROUTER_API_KEY --skill-dir ./skills_output --epochs 80
-```
-*This command will: (1) Generate geometric embeddings for all skills, (2) Re-train the neural scorer, and (3) Run a test suite to validate retrieval confidence.*
-
+Está excelente! Quer ajuda com mais alguma parte da arquitetura?
 ---
 
 ## Core Concepts
