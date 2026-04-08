@@ -1005,6 +1005,8 @@ print(result["result"])
 
 **This code contains bugs and errors , just with caution.** 
 
+**The End Result i Expect to See in this Project is that it can Create a package, a skill  containing logical abstractions, scripts, markdowns, vectors, anything, everything in a package that can be used by any Agent, or LLM, local or remote, thru Context Alone, or Vector Injection. Not only that, but also Update that Skill, Evolve it, make it learn. 
+
 
 
 
