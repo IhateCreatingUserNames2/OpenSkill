@@ -428,58 +428,58 @@ class SkillCrafter:
         title = skill.get('title', 'Unnamed Skill')
         slug_name = _slugify(title)
 
-        # O campo description dita quando a skill deve ser ativada.
-        description = skill.get('description', f"Workflow and utilities for {task}")
-        when_to_apply = skill.get('when_to_apply', description)
+        # Evita quebra de YAML e limita tamanho
+        description = skill.get('description', f"Workflow and utilities for {task}").strip()
+        when_to_apply = skill.get('when_to_apply', description).strip()
+        yaml_desc = (description + " " + when_to_apply)[:1000]
 
         inv_md = "\n".join(f"- {i}" for i in skill.get("invariants", []))
         viol_md = "\n".join(f"- ⚠️ {v}" for v in skill.get("violations", []))
         con_md = "\n".join(f"- {c}" for c in skill.get("constraints", []))
 
+        # IMPORTANTE: sem indentação no início
         return f"""---
-        name: {slug_name}
-        description: |
-          {when_to_apply}
-        metadata:
-          domain: {skill.get('domain', 'General')}
-          generated_by: OpenSkill EvoSkills Framework
-          weak_agent: {weak_model}
-          strong_agent: {strong_model}
-        ---
+    name: {slug_name}
+    description: "{yaml_desc}"
+    metadata:
+      domain: {skill.get('domain', 'General')}
+      generated_by: OpenSkill EvoSkills Framework
+      weak_agent: {weak_model}
+      strong_agent: {strong_model}
+    ---
 
-# {skill.get('title', 'Unnamed Skill')}
+    # {title}
 
-> {skill.get('description', '')}
+    > {description}
 
-## When to Apply
-{skill.get('when_to_apply', task)}
+    ## Available Scripts
+    - `scripts/utils.py` - Core utility functions for this skill.
 
----
+    ## Reasoning Invariants
+    {inv_md}
 
-## Reasoning Invariants
-{inv_md}
+    ## Violation Patterns
+    {viol_md}
 
----
+    ## Normative Constraints
+    {con_md}
 
-## Violation Patterns
-{viol_md}
-
----
-
-## Normative Constraints
-{con_md}
-
----
-
-## Example Pattern
-{skill.get('example_pattern', 'No example provided.')}
-code
-Code
----
-
-## Source: MemCollab Analysis
-*Analysis performed by contrasting {strong_model} against {weak_model}.*
-"""
+    ---
+    
+    ## Example Pattern
+    {skill.get('example_pattern', 'No example provided.')}
+    Or
+    ```python
+    import sys
+    # Always use relative paths when executing inside the skill directory
+    sys.path.insert(0, 'scripts')
+    from utils import * ```
+    Code
+    ---
+    
+    ## Source: MemCollab Analysis
+    *Analysis performed by contrasting {strong_model} against {weak_model}.*
+    """
 
     def _extract_json(self, text: str) -> Optional[dict]:
         """Extrai JSON de forma ultra-robusta, limpando blocos de raciocínio."""
