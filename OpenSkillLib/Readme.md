@@ -322,21 +322,6 @@ openskill retrieve "How to design Circuit Breaker?" --local --mode auto
 openskill list
 ```
 
-
----
-
-### Por que isso resolve tudo?
-
-1. **`pyproject.toml` + Hatch:** O campo `[project.scripts]` no seu arquivo é a forma moderna (PEP 621) de definir o que antes era feito no `setup.py`. O `hatch` lerá isso e criará os *links* executáveis automaticamente.
-2. **`uv`:** Ao usar `make install` com `uv`, você garante que as dependências (`numpy`, `torch`, `click`, etc.) sejam instaladas em milissegundos.
-3. **Comando `openskill` direto:** Agora, quando o usuário rodar `make install`, o Python criará um link simbólico no seu ambiente virtual que aponta para `openskill.cli.main:cli`. 
-4. **Sem erros de import:** Ao usar `python -m openskill.cli.main` ou apenas `openskill`, você não terá mais os problemas de caminho (`can't open file`) que enfrentou antes, porque o sistema de pacotes Python gerencia o `PYTHONPATH` para você.
-
-**Agora você pode rodar:**
-`openskill retrieve "How to design Circuit Breaker?" --local --mode auto`
-...diretamente de qualquer pasta, sem precisar referenciar o `python pil.py` ou `python train_scorer.py` o tempo todo (embora o pipeline `pil.py` ainda seja necessário para os processos longos de treino).
-
-Está excelente! Quer ajuda com mais alguma parte da arquitetura?
 ---
 
 ## Core Concepts
