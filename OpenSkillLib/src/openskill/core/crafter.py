@@ -37,6 +37,14 @@ from openskill.llm.base import BaseLLMProvider, LLMMessage
 log = structlog.get_logger()
 
 
+def _slugify(text: str) -> str:
+    """Converte 'Optimal Fibonacci' para 'optimal-fibonacci' (Padrão Agent Skills)."""
+    import re
+    # Remove caracteres especiais, troca espaços por hífens e deixa minúsculo
+    text = re.sub(r'[^a-zA-Z0-9\s-]', '', text).strip().lower()
+    text = re.sub(r'[\s-]+', '-', text)
+    return text[:64] # O padrão exige max 64 chars
+
 # ── Data Classes de Output ───────────────────────────────────────────────────
 
 @dataclass
@@ -415,21 +423,29 @@ class SkillCrafter:
             strong_traj: str,
             constraints: list[str]
     ) -> str:
-        """Renderiza o arquivo final pronto para o armazenamento."""
-        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        """Renderiza o arquivo SKILL.md 100% compatível com o padrão Agent Skills."""
+
+        title = skill.get('title', 'Unnamed Skill')
+        slug_name = _slugify(title)
+
+        # O campo description dita quando a skill deve ser ativada.
+        description = skill.get('description', f"Workflow and utilities for {task}")
+        when_to_apply = skill.get('when_to_apply', description)
 
         inv_md = "\n".join(f"- {i}" for i in skill.get("invariants", []))
         viol_md = "\n".join(f"- ⚠️ {v}" for v in skill.get("violations", []))
         con_md = "\n".join(f"- {c}" for c in skill.get("constraints", []))
 
         return f"""---
-name: {skill.get('title', 'Unnamed Skill')}
-domain: {skill.get('domain', 'General')}
-generated: {now}
-method: MemCollab Contrastive Trajectory Distillation
-weak_agent: {weak_model}
-strong_agent: {strong_model}
----
+        name: {slug_name}
+        description: |
+          {when_to_apply}
+        metadata:
+          domain: {skill.get('domain', 'General')}
+          generated_by: OpenSkill EvoSkills Framework
+          weak_agent: {weak_model}
+          strong_agent: {strong_model}
+        ---
 
 # {skill.get('title', 'Unnamed Skill')}
 
