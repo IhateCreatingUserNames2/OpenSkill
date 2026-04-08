@@ -997,10 +997,13 @@ print(result["result"])
 ## Disclaimer 
 
 
-** All of this is EXPERIMENTAL, this is Prototype, a Proof of Concept. ** 
-** This code is based on the concepts described in academic papers, it may contains issues in replicating and integrating them **
-** Vector Injection is a Trick Thing, to do as S-pAth RAG did, one would need a LoRA to understand what it is being Injected, for NOW, i have DECIDED to only Steer it In the Optimal Direction, instead of Context Injection in the Attention matrix ** 
-** This code contains bugs and errors , just with caution ** 
+**All of this is EXPERIMENTAL, this is Prototype, a Proof of Concept.** 
+
+**This code is based on the concepts described in academic papers, it may contains issues in replicating and integrating them**
+
+**Vector Injection is a Trick Thing, to do as S-pAth RAG did, one would need a LoRA to understand what it is being Injected, for NOW, i have DECIDED to only Steer it In the Optimal Direction, instead of Context Injection in the Attention matrix** 
+
+**This code contains bugs and errors , just with caution** 
 
 
 
