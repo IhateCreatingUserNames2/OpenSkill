@@ -280,15 +280,87 @@ The resulting bundle has:
 
 ## Installation
 
-```bash
-download src/
+To get started with OpenSkill, ensure you have **Python 3.10+** installed on your system.
 
+### 1. Clone and Setup
+OpenSkill is designed as a modular library. You can clone the repository and install the dependencies directly:
+
+```bash
+# Clone the repository
+git clone https://github.com/IhateCreatingUserNames2/OpenSkill.git
+cd OpenSkill/OpenSkillLib
+
+# Create and activate a virtual environment (recommended)
+python -m venv .venv
+# On Windows:
+.venv\Scripts\activate
+# On Linux/macOS:
+source .venv/bin/activate
+
+# Install core dependencies
+pip install -r requirements.txt
 ```
 
-Set your API key:
+### 2. Configure Your Environment
+OpenSkill leverages LLMs for distillation, evolution, and embedding. We use **OpenRouter** as the default provider for maximum model flexibility.
+
+Set your API key as an environment variable:
+
+**Linux / macOS:**
 ```bash
 export OPENROUTER_API_KEY="sk-or-v1-..."
 ```
+
+**Windows (PowerShell):**
+```powershell
+$env:OPENROUTER_API_KEY="sk-or-v1-..."
+```
+
+*(Tip: For persistent setup, add this export to your `.bashrc`, `.zshrc`, or Windows Environment Variables.)*
+
+### 3. Verify the CLI
+Once installed, you can access the `openskill` command-line interface to manage your skill library. Verify the installation by checking the version:
+
+```bash
+# Ensure you are inside the OpenSkillLib directory
+python -m openskill.cli --version
+```
+
+### 4. Quick-Start Commands
+The CLI is your primary tool for managing the lifecycle of your geometric skill memory. Here are the most common operations:
+
+**Create a new skill (MemCollab):**
+Distill a new skill from a natural language task.
+```bash
+python -m openskill.cli create "Implement an exponential backoff retry strategy"
+```
+
+**Retrieve guidance for a query:**
+Search your knowledge graph using S-Path-RAG.
+```bash
+python -m openskill.cli retrieve "How do I handle network timeouts?" --mode auto
+```
+
+**Evolve existing skills (Trace2Skill):**
+Improve an existing skill based on evidence from previous execution traces.
+```bash
+python -m openskill.cli evolve <skill-id> --tasks "task1,task2"
+```
+
+**Manage Library:**
+List all installed skills or inspect the knowledge graph topology.
+```bash
+python -m openskill.cli list
+python -m openskill.cli graph
+```
+
+### 5. Running the Full Pipeline
+For a complete automated experience—from embedding your skills to training the neural path scorer—use the provided pipeline script:
+
+```bash
+python pil.py --api-key $OPENROUTER_API_KEY --skill-dir ./skills_output --epochs 80
+```
+*This command will: (1) Generate geometric embeddings for all skills, (2) Re-train the neural scorer, and (3) Run a test suite to validate retrieval confidence.*
 
 ---
 
