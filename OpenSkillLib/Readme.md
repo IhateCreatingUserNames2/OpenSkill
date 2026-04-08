@@ -280,9 +280,6 @@ The resulting bundle has:
 
 ## Installation
 
-
-## Installation
-
 OpenSkill is built with modern Python packaging standards. You can install it in editable mode to use the CLI directly.
 
 ### 1. Environment Setup
