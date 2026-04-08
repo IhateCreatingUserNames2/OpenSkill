@@ -993,6 +993,7 @@ print(result["result"])
 
 **Confidence-gated retrieval.** The Neural-Socratic loop only expands search when confidence is below threshold, preventing unnecessary computation when the first retrieval round is already sufficient.
 
+**Graceful degradation.** Every injection mode has a fallback chain: cross-attention → prefix → verbalization → plain generation. The system works even with no trained injectors — it just uses the constraint text from SKILL.md instead.
 
 ## Disclaimer 
 
@@ -1005,10 +1006,9 @@ print(result["result"])
 
 **This code contains bugs and errors , just with caution.** 
 
-**The End Result i Expect to See in this Project is that it can Create a package, a skill  containing logical abstractions, scripts, markdowns, vectors, anything, everything in a package that can be used by any Agent, or LLM, local or remote, thru Context Alone, or Vector Injection. Not only that, but also Update that Skill, Evolve it, make it learn. 
+**The End Result i Expect to See in this Project is that it can Create a package, a skill  containing logical abstractions, scripts, markdowns, vectors, anything, everything in a package that can be used by any Agent, or LLM, local or remote, thru Context Alone, or Vector Injection. Not only that, but also Update that Skill, Evolve it, make it learn.**
 
 
 
 
 
-**Graceful degradation.** Every injection mode has a fallback chain: cross-attention → prefix → verbalization → plain generation. The system works even with no trained injectors — it just uses the constraint text from SKILL.md instead.
