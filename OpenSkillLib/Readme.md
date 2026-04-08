@@ -33,6 +33,7 @@
 9. [Full Pipeline Walkthrough](#full-pipeline-walkthrough)
 10. [Agent Pipeline Integration — OpenClaw Example](#agent-pipeline-integration)
 11. [Architecture Diagram](#architecture-diagram)
+12. [Disclaimer](#disclaimer)
 
 ---
 
