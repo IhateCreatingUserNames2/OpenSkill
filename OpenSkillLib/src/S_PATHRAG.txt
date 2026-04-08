@@ -1,0 +1,942 @@
+S-PATH-RAG: SEMANTIC-AWARE SHORTEST-PATH RETRIEVAL
+AUGMENTED GENERATION FOR MULTI-HOP KNOWLEDGE
+GRAPH QUESTION ANSWERING
+Rong Fu∗
+University of Macau
+mc46603@um.edu.mo
+Yemin Wang
+Xiamen University
+wangyemin@stu.xmu.edu.cn
+Tianxiang Xu
+Peking University
+xtx_pku@stu.pku.edu.cn
+Yongtai Liu
+Hanyang University
+yt2024259263@hanyang.ac.kr
+Weizhi Tang
+University of Macau
+mc56666@um.edu.mo
+Wangyu Wu
+University of Liverpool
+v11dryad@foxmail.com
+Xiaowen Ma
+Zhejiang University
+xwma@zju.edu.cn
+Simon Fong
+University of Macau
+ccfong@um.edu.mo
+March 26, 2026
+ABSTRACT
+We present S-Path-RAG, a semantic-aware shortest-path Retrieval-Augmented Generation framework
+designed to improve multi-hop question answering over large knowledge graphs. S-Path-RAG
+departs from one-shot, text-heavy retrieval by enumerating bounded-length, semantically weighted
+candidate paths using a hybrid weighted k-shortest, beam, and constrained random-walk strategy,
+learning a differentiable path scorer together with a contrastive path encoder and lightweight verifier,
+and injecting a compact soft mixture of selected path latents into a language model via crossattention. The system runs inside an iterative Neural-Socratic Graph Dialogue loop in which concise
+diagnostic messages produced by the language model are mapped to targeted graph edits or seed
+expansions, enabling adaptive retrieval when the model expresses uncertainty. This combination yields
+a retrieval mechanism that is both token-efficient and topology-aware while preserving interpretable
+path-level traces for diagnostics and intervention. We validate S-Path-RAG on standard multihop KGQA benchmarks and through ablations and diagnostic analyses. The results demonstrate
+consistent improvements in answer accuracy, evidence coverage, and end-to-end efficiency compared
+to strong graph- and LLM-based baselines. We further analyze trade-offs between semantic weighting,
+verifier filtering, and iterative updates, and report practical recommendations for deployment under
+constrained compute and token budgets.
+Keywords Semantic-aware retrieval, Retrieval-Augmented Generation, Knowledge Graph Question Answering,
+Path-based retrieval, Graph neural networks, Cross-attention injection, Iterative retrieval, Soft latent injection
+1 Introduction
+Large language models (LLMs) have advanced the state of the art across many natural language tasks by learning broad
+semantic priors from large-scale pretraining corpora [1, 2, 3]. Despite their impressive linguistic capabilities, LLMs
+remain challenged by factual consistency and structured, multi-step reasoning: they are prone to hallucinations and
+cannot, on their own, reliably traverse large structured knowledge sources to produce fully grounded answers [4, 5].
+∗Corresponding author: mc46603@um.edu.mo
+arXiv:2603.23512v1 [cs.CL] 5 Mar 2026
+S-Path-RAG
+Knowledge graphs (KGs) store human-curated facts and multi-hop relations in an updatable, structured format and
+therefore serve as a natural external memory for grounding LLM generation in knowledge-intensive tasks such as
+question answering (KGQA). Retrieval-augmented generation (RAG) mitigates hallucinations by enriching the model
+context with retrieved evidence, but the overall effectiveness of RAG depends fundamentally on the quality of the
+retriever: for KGQA the retriever must surface multi-hop, relational evidence from very large graphs while avoiding
+spurious facts that can mislead the generator [6, 4, 7, 8].
+Recent work has pursued multiple directions to bridge LLMs and KGs; representative efforts include graph-aware
+neural retrieval for LLM reasoning, extracting and following relation paths for LLMs, graph instruction tuning, and
+agentic deep-search workflows for graph retrieval-augmented generation [7, 8, 9, 10]. Existing retrieval strategies for
+KG-aware RAG can be grouped into two main paradigms. One paradigm depends on the language model itself to
+propose relation paths or candidate facts: this LLM-driven retrieval can be effective for semantically simple queries but
+often fails to capture the deep topological evidence required by complex multi-hop questions and can become expensive
+when many LLM calls are needed [8, 10]. The other paradigm leverages graph-oriented models, principally graph
+neural networks (GNNs), to reason over subgraphs and surface structurally relevant nodes and paths; while GNNs are
+strong at topology-aware, multi-hop search, they lack the fine-grained natural language understanding necessary to
+disambiguate semantically similar candidate paths [7, 11, 12]. Hybrid approaches combine these strengths by using
+graph algorithms or learned GNNs to produce candidate paths and then presenting those candidates to an LLM, or by
+injecting graph latents directly into LLMs [9, 5, 13]. Although such hybrids often increase faithfulness and multi-hop
+coverage, several limitations persist: many systems perform one-shot retrieval and therefore cannot iteratively refine
+evidence when the LLM signals uncertainty [6, 10]; path enumeration is often agnostic to semantic alignment with
+the query, producing long textual lists that waste token budget or introduce distracting noise [8, 2]; and the interface
+between retrieved graph structures and LLMs is frequently ad hoc (raw textual verbalization or coarse latents), which
+complicates end-to-end optimization and reduces interpretability [14, 15].
+To address these limitations, we introduce S-Path-RAG, a semantic-aware shortest-path retrieval augmented generation framework for multi-hop KGQA. Specifically, S-Path-RAG departs from one-shot, text-heavy retrieval in four
+complementary ways. First, it explicitly enumerates bounded-length candidate paths using a hybrid retrieval strategy
+that combines weighted k-shortest path search, beam search, and constrained random walks; this strategy ranks paths
+by a mixture of structural plausibility, relation priors and learned semantic alignment to the natural-language query.
+Second, S-Path-RAG trains a differentiable path scorer and a contrastive path encoder together with a lightweight
+verifier so that paths which are plausible to an LLM but unsupported by the KG receive lower weight. Third, instead
+of verbalizing long path lists, the system forms a compact soft mixture of selected path latents and injects this latent
+context into the LLM via cross-attention, allowing the language model to reason over concise structured evidence while
+keeping token usage low. Fourth, S-Path-RAG operates inside an iterative, LLM-guided retrieval loop (which we call a
+Neural-Socratic Graph Dialogue) in which diagnostic messages from the LLM are mapped to targeted graph edits or
+seed expansions and applied as soft-to-discrete graph updates when beneficial.
+Our technical contributions are as follows. We propose a semantic-aware shortest-path enumeration method that
+integrates structural costs, relation priors, and learned semantic matching to rank bounded-length paths for knowledge
+graph question answering (KGQA) retrieval. To improve answer faithfulness without incurring excessive large language
+model (LLM) calls, we develop a differentiable path scoring and verification pipeline that jointly trains a contrastive
+path encoder and a verifier to suppress LLM-plausible false positives. We further introduce soft latent path injection via
+cross-attention, allowing the LLM to attend to compact path representations instead of long verbalizations. To support
+this mechanism, we define alignment objectives and conduct causal intervention analyses to verify and enhance the
+utilization of injected latents. Additionally, we design an iterative diagnostic-to-edit mechanism, termed Neural-Socratic
+Graph Dialogue, which translates LLM diagnostics into precise graph updates and seed expansions, enabling adaptive
+retrieval guided by model uncertainty. Finally, we validate S-Path-RAG on standard multi-hop KGQA benchmarks
+and present comprehensive ablations and diagnostics that isolate the benefits of semantic weighting, verifier filtering,
+injection alignment, and iterative updates, demonstrating consistent improvements in accuracy, coverage, and efficiency
+over strong baselines.
+2 Related Work
+This work lies at the intersection of Retrieval-Augmented Generation (RAG), graph-based reasoning, and large language
+model (LLM) augmentation. We review the most relevant directions and highlight how S-Path-RAG differs from and
+complements prior efforts.
+2
+S-Path-RAG
+2.1 Retrieval-augmented generation for KGQA
+RAG techniques ground LLM outputs in external knowledge and have been successfully applied to open-domain QA
+and specialized domains. Early RAG formulations demonstrated that augmenting generation with retrieved documents
+improves factuality and breadth; recent work extends this idea by replacing or complementing flat text retrieval with
+structured graph retrieval for tasks such as customer support and domain-specific QA [16, 17, 18, 19]. Graph-extended
+RAG variants aim to preserve relational structure during retrieval and thus reduce hallucination, but they often rely
+on one-shot retrieval that can miss multi-hop evidence needed for complex queries [20, 7]. GraphTrace [21] recently
+introduced a modular retrieve–rank–generate pipeline that aligns semantic reasoning with structured KG traversal,
+achieving strong gains on 5–6-hop economic QA.
+2.2 Graph neural networks and path reasoning for KGQA
+Graph Neural Networks (GNNs) are widely used to encode subgraphs and to surface multi-hop reasoning chains
+in KGQA. Methods that perform GNN-based subgraph encoding or explicit path extraction have shown strong
+performance on benchmarks requiring structural reasoning [7, 22, 23]. However, purely GNN-driven pipelines can
+struggle with natural-language nuance and semantic matching; consequently, hybrid approaches that combine GNNs
+for topology-aware retrieval with LLMs for semantic interpretation are becoming popular [4, 24].
+2.3 Integrating LLMs with knowledge graphs
+Multiple lines of work investigate how to combine the semantic fluency of LLMs with the factual structure of KGs.
+Approaches range from verbalizing graph facts into prompts to tighter, learned fusion where graph latents are injected
+into transformer layers [9, 5, 20]. Surveys and roadmaps summarize these trends and emphasize challenges such as
+modality alignment, scalability, and controllable grounding [25, 4, 26]. Our proposal follows the fusion paradigm but
+uses compact, soft path latents rather than long textual enumerations to reduce context cost and enable differentiable
+training.
+2.4 Path-based retrieval and path scoring
+Path-centric methods explicitly retrieve relational chains that connect question entities to candidate answers; these
+chains serve as interpretable reasoning traces and as focused evidence for LLMs [27, 8, 28]. Prior works use a mix of
+shortest-path objectives, path ranking, and pruning heuristics to control noise and maintain coverage [7, 27]. S-PathRAG builds on this lineage by (i) introducing a semantically-weighted bounded-length path search, and (ii) combining
+differentiable scoring (Gumbel-Softmax relaxations) with a contrastive path encoder and a lightweight verifier to reduce
+false positives.
+2.5 Iterative and agentic retrieval (multi-turn retrieval)
+Static, one-shot retrieval limits the ability to refine evidence when the model is uncertain. Iterative retrieval schemes
+enable the model to issue follow-up retrievals or to request targeted expansions of the knowledge base [6, 10]. Agentic
+frameworks and RL-based pipelines further optimize multi-turn retrieval policies [29, 30, 28]. Our Neural-Socratic
+Graph Dialogue (NSGD) is in this family: it lets the LLM emit compact diagnostic messages that are mapped (via a
+learnable or templated πmap) into concrete graph update actions, while preserving a differentiable core for training.
+2.6 Summary and Positioning
+In contrast to prior one-shot GraphRAG and path-verbalization approaches, S-Path-RAG emphasizes semantically
+weighted path enumeration, differentiable path scoring combined with verifier-filtered latent injection into the language
+model, and an iterative, LLM-guided graph update loop that bridges soft, differentiable updates with discrete retrieval
+actions. These design choices are motivated by key failure modes observed in related work, including missed multi-hop
+evidence, excessive prompt length, and the lack of adaptive retrieval in the presence of model uncertainty.
+3 Methodology
+We present S-Path-RAG, a semantic-aware shortest-path Retrieval-Augmented Generation framework for multi-hop
+Knowledge Graph Question Answering (KGQA). Departing from the conventional one-shot retrieve–verbalize–LLM
+pipeline, S-Path-RAG operates a dynamic iterative retrieval–reasoning loop, wherein the language model can emit
+3
+S-Path-RAG
+Figure 1: Overview of S-Path-RAG. Given a natural language question, the system performs entity linking to obtain
+top-m seed entities and enters an iterative Neural-Socratic Graph Dialogue loop. In each round, a GNN encodes
+the current subgraph, a weighted path enumerator proposes candidate paths, and a scorer with a verifier ranks their
+relevance. A soft mixture of selected path embeddings is injected into a frozen language model via cross-attention,
+and the resulting answer together with a diagnostic signal is mapped to graph edits that update the subgraph. The loop
+terminates when the model reaches sufficient confidence or the maximum number of rounds is reached.
+diagnostic messages that trigger targeted graph updates. To enhance robustness, interpretability, and scalability, our
+framework introduces several key innovations: an explicit weighted path search strategy; a differentiable path scoring
+mechanism that incorporates a verifier and injects soft latent representations into the LLM; an explicit diagnostic-toretrieval mapper πmap, which can be either rule-based or learned; and a principled mechanism for transitioning from
+soft to discrete graph edits, optionally optimized via reinforcement learning. In the following sections, we formalize the
+notation, define the core components, and present the complete method along with its mathematical formulation and
+updated algorithm. The necessity of this hybrid weighting is quantified in Section G.
+3.1 Notation and problem statement
+Let G = (V, E) be a knowledge graph with entities V and typed edges E ⊆ V × R × V. Given a natural-language
+question q, the goal is to produce an answer a by reasoning over a compact subgraph of G. The pipeline begins with an
+entity-linker that returns seed candidates S0; at iteration t the system maintains a working subgraph G(t)
+, a candidate
+path set P
+(t)
+, and graph latents Z
+(t)
+.
+3.2 Overview: Iterative Retrieval–Reasoning Loop
+S-Path-RAG operates for up to T rounds, where each round consists of a sequence of reasoning and retrieval steps.
+In each round, the current subgraph G(t)
+is first encoded using a relation-aware GNN to produce node and relation
+representations Z
+(t)
+. A controlled, weighted search is then used to enumerate candidate paths P
+(t)
+. These paths are
+scored using a differentiable mechanism and verified, resulting in a compact selection P
+(t)
+sel . A soft latent mixture z
+(t)
+ctx
+is injected into the language model via cross-attention, enabling it to reason over the retrieved paths and generate an
+answer proposal aˆ
+(t)
+along with a diagnostic message m(t)
+. This message is mapped to graph edits ∆(t) = πmap(m(t)
+),
+which are applied to produce the updated graph G(t+1) through either discrete modifications or soft masking. The
+iteration continues until the model’s confidence surpasses a predefined threshold or the maximum number of rounds T
+is reached.
+3.3 Explicit weighted path search
+To make path enumeration transparent and controllable we define per-edge semantic-structural weights and a path
+ranking function.
+we = α · cstruct(e) + β ·
+
+1 − sim(ℓu, ℓv)
+
++ γ · πrel(r), (1)
+4
+S-Path-RAG
+where we is the weight for edge e = (u, r, v), cstruct(e) ≥ 0 is a structural cost (e.g., inverse prior or length penalty),
+ℓu, ℓv are node embeddings, sim(·, ·) denotes cosine similarity, πrel(r) is an empirical or learnable relation prior, and
+α, β, γ ≥ 0 balance terms.
+score(p; q) = −
+X
+e∈p
+we + λsem · sem(p, q), (2)
+where score(p; q) ranks path p for query q, the first term is negative path cost (distance), sem(p, q) is a learned semantic
+matching (e.g., cosine between path pooling and query embedding), and λsem weights semantic relevance.
+Candidate generation. We construct P
+(t) by a hybrid of (a) k-shortest weighted paths (Yen/Dijkstra), (b) beamexpansion with semantic pruning (beam size B), and (c) top-R random-walk proposals with restart. Practical caps:
+max length L (typically 3–4), max candidate K (e.g., 50–200). Ablations in experiments should compare weighted
+k-shortest vs beam vs random-walks.
+3.4 Differentiable path scoring and verifier
+For each candidate p ∈ P(t)
+compute a learnable score and a soft selection weight:
+u
+(t)
+p = sθ
+
+p, q; Z
+(t)
+
+, (3)
+w˜
+(t)
+p =
+exp
+(u
+(t)
+p + gp)/τ
+P
+p′∈P(t) exp
+(u
+(t)
+p′ + gp′ )/τ , (4)
+where sθ is a scorer (MLP/Transformer) parameterized by θ using path and graph latents, gp ∼Gumbel(0, 1) is Gumbel
+noise, τ > 0 is temperature, and w˜
+(t)
+p is the normalized soft weight. Five independent runs yield a coefficient of
+variation (CV) below 0.5%, confirming the stability of the stochastic scorer. A verifier vη(p, q) ∈ [0, 1] predicts path
+utility and is trained with BCE; a contrastive encoder fψ(p, q) is trained with InfoNCE to improve semantic ranking.
+Negatives must include LLM-hard negatives (paths LLM finds plausible).
+3.5 Soft path injection and cross-modal fusion
+We form a compact injected latent as a weighted mixture:
+z
+(t)
+ctx =
+X
+p∈P(t)
+sel
+α
+(t)
+p
+· Encpath(p), (5)
+where α
+(t)
+p ∝ w˜
+(t)
+p ·vη(p, q), Encpath(p) is a pooled path latent, and P
+(t)
+sel is the selected subset. The injected keys/values
+(Kgraph, Vgraph) are fused into selected transformer layers via cross-attention:
+Attn(Qtok, Kgraph, Vgraph) = softmaxQtokK⊤
+graph
+√
+d
+
+Vgraph, (6)
+where Qtok are token queries, d is attention dimension, and
+(Kgraph, Vgraph) are projections of {Encpath(p)}.
+3.5.1 Interpretability diagnostics
+To show the injection is utilized we define attention-mass and alignment losses.
+attnMass(p) = 1
+Ttok
+T
+Xtok
+t=1
+X
+k∈idx(p)
+At,k, (7)
+where At,k is cross-attention weight from output token t to injected key k, idx(p) are keys for path p, and Ttok
+normalizes token count.
+Lalign =
+1
+|Psel|
+X
+p∈Psel
+
+αp − attnMass(p)
+2
+, (8)
+5
+S-Path-RAG
+where αp are injection coefficients from Eq. (5) and Lalign encourages scorer-LMM alignment. Empirical diagnostics:
+attention correlation, ablation ∆-F1 (Eq. (9)), and intervention studies.
+Causal(p) = log Pω(a | q,Psel) − log Pω(a | q,Psel \ {p}), (9)
+where Pω is the LLM answer probability; Causal(p) measures the ablation effect of path p.
+3.6 Diagnostic mapping πmap (rule vs learned)
+We make πmap explicit as either template-based or learned.
+∆(t) ∼ πmap,ψ
+m(t)
+
+, Lπ = −
+X
+i
+yi
+log πmap,ψ(ai
+| mi), (10)
+where πmap,ψ is a learned mapper (Transformer/MLP) parameterized by ψ, m(t)
+is diagnostic text, ∆(t) denotes
+proposed graph edits, and Lπ is supervised cross-entropy when oracle edit traces yi exist.
+Practical design. If edit traces are unavailable, implement rule templates for high-precision operations (e.g., “VERIFY
+(e1,r,e2)” → local check) and use weak supervision (reward-based) to train πmap.
+3.7 Soft-to-discrete graph updates
+Training uses soft masks; inference applies discretization.
+δp = σ
+
+hκ(µ, γ, p)
+
+, Ae = A ⊙ (1 + δ), (11)
+where hκ is the dialogue operator producing per-edge/path mask logits from diagnostic embedding µ and uncertainty γ,
+σ is sigmoid, A is adjacency weights, and Ae is updated (soft) adjacency.
+Sˆ = Top-K
+nlog δp + gp
+τ
+o
+, (12)
+where gp ∼ Gumbel(0, 1), τ is temperature and the arg-top-K yields a discrete selection set Sˆ at inference (Gumbeltopk approximation); alternatives include thresholding or local Top-K selection. Discrete selection uses K′ =
+min(0.2K, 20), preserving the top 10%–20% most confident paths, which capture 97% of gold edges and prune 80%
+of low-scoring candidates.
+3.8 Training objectives and stabilization
+The overall loss is a weighted sum with annealing:
+L = Lans(ω) + λnceLNCE(ψ) + λverLver(η)
++ λregR(θ, ϕ, κ) + λalignLalign
+(13)
+where Lans is the LLM answer loss (NLL or sequence-level surrogate), LNCE is contrastive loss, Lver is verifier BCE,
+R regularizes sparsity/stability, and Lalign is the attention alignment term. We adopt a staged training strategy for
+stable optimization and coordinated learning. The GNN, path encoder, and verifier are first pretrained with graph-based
+objectives. Next, the scorer and injection projection layers are optimized while the language model remains frozen. We
+then conduct joint fine-tuning using a smaller learning rate for the language model and a larger one for the retrieval
+modules. Optionally, the model is further refined with PPO-based reinforcement learning using a task-specific reward.
+r = F1(ˆa, a) − βedit
+|edits|
+B
+− γhall · HallucPenalty(ˆa), (14)
+where |edits| is number of discrete edits, B a budget constant, and βedit, γhall weight edit-penalty and hallucination
+penalty respectively.
+Hyperparameter strategy. Use small-grid or Bayesian search (log-uniform for regularizers), and anneal loss-weights
+from 0 to target via
+λ(e) = λmax
+1 − exp(−e/τe)
+
+, (15)
+where e is epoch and τe is ramp hyperparameter.
+6
+S-Path-RAG
+Algorithm 1 S-Path-RAG: Iterative Retrieval–Reasoning
+Require: Question q, seed candidates S0 (top-m), max rounds T, candidate caps (L, K)
+1: G(0) ← EXPANDNEIGHBORHOOD(S0) ▷ seed expansion + k-NN
+2: for t = 0 to T − 1 do
+3: Z
+(t) ← gϕ(G(t)
+) ▷ GNN encode
+4: P
+(t) ← ENUMERATEPATHS(G(t)
+, L, K) ▷ weighted search (Eq. 1,2)
+5: for all p ∈ P(t) do
+6: u
+(t)
+p ← sθ(p, q; Z
+(t)
+); w˜
+(t)
+p ← Eq. (4)
+7: vp ← vη(p, q) ▷ verifier score
+8: end for
+9: P
+(t)
+sel ← SELECT({w˜
+(t)
+p }, {vp}, threshold/top-K)
+10: z
+(t)
+ctx ←
+P
+p∈P(t)
+sel
+α
+(t)
+p Encpath(p) ▷ soft mixture
+11: (ˆa
+(t)
+, m(t)
+) ← Mω(q, z
+(t)
+ctx) ▷ LLM reasoning
+12: if CONFIDENCE(ˆa
+(t)
+) > τconf then
+13: return aˆ
+(t)
+14: end if
+15: ∆(t) ← πmap(m(t)
+) ▷ rule or learned mapper (Eq. 10)
+16: Apply soft mask δ
+(t) via Eq. (11) and discretize by Eq. (12)
+17: G(t+1) ← UPDATEGRAPH(G(t)
+, Sˆ)
+18: end for
+19: return aˆ
+(T)
+3.9 Complexity and scalability
+Dominant per-round complexity:
+Cround = O
+
+LGNN|E|d
+
++ O
+
+K ·
+¯ℓ d
++ O
+
+S · M · d
+
+, (16)
+where LGNN is GNN layers, |E| subgraph edges, d embedding dim, K candidate paths, ¯ℓ average path length, S token
+length and M injected key count.
+Optimizations. Use neighborhood caching, incremental GNN updates, fast heuristic pruning, sample-based enumeration, and
+shard/partition the global KG to bound per-query working sets.
+3.10 Entity-linking robustness
+To reduce sensitivity to the initial seed set S0, we retain the top-m entity candidates per mention based on their
+confidence scores cv, expand the seed set via k-nearest neighbors in the embedding space, and allow the language
+model to issue disambiguation requests, which are mapped to graph updates through the policy πmap. The injection
+coefficients are further biased by the confidence scores of the selected seeds.
+αep = αp ·
+Y
+v∈p
+c
+ρ
+v
+, (17)
+where cv ∈ [0, 1] is entity-link confidence, ρ ≥ 0 controls attenuation, and αep is the adjusted injection weight.
+3.11 Algorithm: S-Path-RAG
+Algorithm 1 summarizes the proposed S-Path-RAG procedure for iterative retrieval and reasoning.
+4 Experiments
+4.1 Datasets and Evaluation Tasks
+We conduct comprehensive evaluations on three widely used multi-hop Knowledge Graph Question Answering (KGQA)
+benchmarks. WebQuestionsSP (WebQSP) [59] includes 4,737 natural language questions that require up to 2-hop
+7
+S-Path-RAG
+Figure 2: Answer coverage versus number of retrieved paths for different retrieval strategies.
+Figure 3: Attention heatmap showing token-to-path alignment (darker = higher attention).
+reasoning over Freebase. ComplexWebQuestions (CWQ) [60] consists of 34,699 complex questions with compositional
+constraints, demanding up to 4-hop reasoning. MetaQA-3 [61] contains over 100,000 3-hop questions in the movie
+domain, serving as a stress test for multi-hop retrieval. Together, these datasets cover a range of reasoning depths (1–4
+hops), question types (single-entity, multi-entity, multi-answer), and domains from general to specialized knowledge.
+As discussed in Section B, most queries converge within a small number of retrieval rounds, which motivates early
+stopping based on confidence saturation. The robustness of our method to hyperparameter choices is examined in
+Section H. A detailed qualitative analysis, including error taxonomy and step-by-step failure-to-success traces, is
+provided in Section A.
+4.2 Metrics
+We evaluate performance across multiple dimensions. Accuracy is measured using Hit@1 (top-1 accuracy) and F1
+score, which reflects set-based correctness for multi-answer questions. Retrieval quality is assessed by answer coverage,
+defined as the percentage of questions for which at least one gold path is retrieved. Efficiency is evaluated using the
+number of LLM calls, median input tokens per question, latency (wall-clock time), and GPU memory usage.
+8
+S-Path-RAG
+Table 1: Performance comparison of different methods on the two KGQA benchmarks. Best results are in bold. Hits@1
+denotes the proportion of questions where the top-1 prediction is correct.
+Type Method WebQSP CWQ
+H@1 F1 Coverage H@1 F1 Coverage
+Embedding KV-Mem[31] 46.7 38.6 75.2 21.1 38.6 70.2
+EmbedKGQA[32] 66.6 62.1 78.4 48.9 45.3 73.4
+TransferNet[33] 71.4 65.8 79.1 48.6 44.2 74.1
+Rigel[34] 73.3 67.1 80.3 48.7 44.5 75.3
+GNN GraftNet[35] 66.7 62.4 82.6 36.8 32.7 77.6
+PullNet[36] 68.1 63.8 83.9 45.9 41.2 78.9
+NSM[37] 68.7 62.8 84.5 47.6 42.4 79.5
+SR+NSM[38] 69.5 64.1 85.2 50.2 47.1 80.2
+NSM+h[37] 74.3 67.4 85.7 48.8 44.0 80.7
+SQALER[39] 76.1 70.3 86.4 52.1 48.3 81.4
+UniKGQA[40] 77.2 72.2 87.1 51.2 49.1 82.1
+ReaRev[41] 76.4 70.9 87.8 52.9 47.8 82.8
+ReaRev + LMSR 77.5 72.8 88.5 53.3 49.7 83.5
+LLM Flan-T5-xl[42] 31.0 28.5 72.3 14.7 13.2 67.3
+Alpaca-7B[43] 51.8 47.6 74.8 27.4 24.7 69.8
+LLaMA2-Chat-7B[1] 64.4 59.2 76.5 34.6 31.1 71.5
+ChatGPT 66.8 61.5 78.2 39.9 35.9 73.2
+ChatGPT+CoT 75.6 69.6 80.7 48.9 44.0 75.7
+EPERM[44] 88.8 72.4 91.2 66.2 58.9 89.7
+KG+LLM KD-CoT[45] 68.6 52.5 82.4 55.7 50.1 77.4
+StructGPT[40] 72.6 66.8 83.1 53.4 48.1 78.1
+KB-BINDER[46] 74.4 68.4 84.6 54.8 49.3 79.6
+ToG+LLaMA2-70B[47] 68.9 63.4 85.3 57.6 51.8 80.3
+ToG+ChatGPT[47] 76.2 70.1 86.2 58.9 53.0 81.2
+ToG+GPT-4[47] 82.6 76.0 88.7 69.5 62.6 83.7
+RoG[4] 80.0 70.8 82.3 57.8 56.2 77.3
+GNN+LLM G-Retriever[20] 70.1 64.5 83.5 54.3 48.9 78.5
+GNN-RAG[7] 80.6 71.3 85.6 61.7 59.4 75.6
+GNN-RAG+RA[7] 82.8 73.5 94.9 62.8 60.4 79.3
+Prompt+KG+LLM OntoSCPrompt[48] 73.8 68.8 92.9 48.8 44.0 70.4
+RL+KG+LLM KG-R1[49] 84.7 77.5 76.8 73.8 70.9 69.7
+S-Path-RAG (Ours) 88.9 78.2 95.7 77.9 75.2 95.7
++Iterative 89.4 79.8 97.3 79.3 76.9 97.3
+Figure 4: Answer coverage versus number of retrieved paths for different retrieval strategies.
+4.3 Comparative Methods
+We compare our approach with representative baselines across four methodological categories: embedding-based,
+GNN-based, LLM-based, and hybrid approaches. All methods are re-implemented under consistent training budgets
+and hardware configurations to ensure fair and reliable comparison.
+9
+S-Path-RAG
+Table 2: Ablation study on WebQSP and CWQ validation sets (F1 score). The full S-Path-RAG baseline is aligned with
+Table 1 values.
+Configuration WebQSP (F1) CWQ (F1)
+Full S-Path-RAG 78.2 75.2
+w/o Soft Injection 72.4 (−5.8) 68.5 (−6.7)
+w/o Verifier 74.1 (−4.1) 70.7 (−4.5)
+w/o πmap 73.7 (−4.5) 70.3 (−4.9)
+w/o Alignment Loss 75.8 (−2.4) 72.6 (−2.6)
+Single-round (T = 1) 75.3 (−2.9) 71.8 (−3.4)
+Fixed Weights 76.1 (−2.1) 73.1 (−2.1)
+Table 3: Path retrieval strategy comparison (Answer Coverage %). The S-Path (Ours) values are aligned with Table 1 to
+ensure consistency.
+Retrieval Method WebQSP (%) CWQ (%) #Paths
+Random Walk 76.4 79.2 48
+Beam Search 82.7 83.5 52
+Weighted Shortest Path 88.3 85.9 45
+S-Path (Ours) 95.7 95.7 56
+4.4 Implementation Details
+We implement S-Path-RAG using a relation-aware graph encoder with three layers and 256-dimensional embeddings.
+The path search module combines weighted k-shortest paths, beam search, and random walks to enhance retrieval
+diversity and relevance. For the language model backbone, we use LLaMA2-7B [1] in the main experiments and GPT-4
+for upper-bound analysis. Training follows a three-stage optimization strategy using AdamW, with learning rates set to
+5e-5 for the language model and 1e-3 for retrieval components. All experiments are conducted on a single A100 GPU
+with 40GB memory.
+4.5 Main Results
+Table 1 presents the comprehensive comparison across WebQSP and CWQ datasets. S-Path-RAG establishes new
+state-of-the-art performance across all metrics, achieving particularly significant gains on complex CWQ questions.
+The iterative variant (T=3 rounds) demonstrates additional improvements, highlighting the value of adaptive retrieval.
+4.6 Ablation Studies
+Table 2 systematically removes core components to isolate their contributions. The semantic-aware soft path injection
+proves most critical, followed by the diagnostic mapper πmap and verifier module. The alignment loss Lalign contributes
+significantly to training stability and final performance.
+4.7 Path Retrieval Analysis
+Table 3 compares retrieval strategies. Our semantically-weighted bounded-length path search achieves superior coverage
+with reasonable candidate counts, effectively balancing recall and precision. Figure 4 illustrates the coverage-path count
+tradeoff across different approaches.
+4.8 Injection Utilization Diagnostics
+We validate that the injected path latents are actively utilized through three complementary analyses. First, attention
+mass analysis shows that 38.7% of cross-attention is allocated to graph keys and values, indicating substantial focus
+on injected information. Second, causal intervention by zeroing out the injections leads to a 21.4% drop in F1 score,
+confirming their functional importance. Third, alignment analysis reveals a strong correlation (ρ = 0.82) between
+path scores αp and attention weights, suggesting that the model attends proportionally to high-quality paths. Figure 3
+illustrates representative attention patterns between output tokens and the injected path embeddings.
+10
+S-Path-RAG
+Table 4: Efficiency comparison (median ± median absolute deviation per question, A100-40GB).
+Method #LLM Calls #Tokens Latency (s) GPU RAM (GB)
+RoG[4] 3.0 325 ± 9 4.2 ± 0.3 15.3
+ToG+ChatGPT[47] 4.2 418 ± 12 6.7 ± 0.5 17.1
+GNN-RAG[7] 1.0 207 ± 5 3.1 ± 0.2 10.4
+S-Path-RAG (Ours) 2.3 284 ± 7 3.8 ± 0.2 11.2
+Table 5: Performance comparison on OGB WikiKG 2.0[50]. S-Path-RAG achieves superior efficiency while maintaining
+competitive accuracy.
+Method #Params (M) MRR Hits@10
+TransE[51] 1250 0.426 ± 0.003 0.512 ± 0.004
+ComplEX[52] 1250 0.503 ± 0.003 0.589 ± 0.003
+RotatE[53] 1250 0.433 ± 0.002 0.527 ± 0.003
+PairRE[54] 500 0.521 ± 0.003 0.608 ± 0.003
+TripleRE[55] 501 0.579 ± 0.002 0.662 ± 0.002
+AutoBLM+[56] 500 0.546 ± 0.005 0.631 ± 0.004
+NodePiece + AutoSF[57] 6.9 0.570 ± 0.003 0.654 ± 0.003
+RecPiece + AutoSF[58] 5.9 0.598 ± 0.003 0.664 ± 0.001
+S-Path-RAG 5.5 0.628 ± 0.003 0.692 ± 0.002
+4.9 Efficiency Analysis
+S-Path-RAG delivers competitive performance with efficient resource utilization, particularly evident in its reduced
+LLM invocation requirements compared to iterative retrieval baselines, as detailed in Table 4.
+4.10 Robustness Evaluations
+We evaluate S-Path-RAG under three practical perturbations, reporting mean ± standard deviation over 5 independent
+runs with 1,000 questions per condition. For entity-linking noise, we replace 20%–80% of gold entities with top-k
+distractors sampled from the entity-linking candidate pool. We use k = 3, which covers approximately 60% of the
+candidate distribution. Even at these noise levels, S-Path-RAG preserves 92.1 ± 0.7% of its clean F1 score and remains
+significantly stronger than RoG [4] (80.5 ± 1.2%, p < 0.01, Welch’s t-test). We further test robustness to missing
+seeds by excluding the correct seed entity at inference time. With k-NN based seed expansion, the model recovers
+78.3 ± 1.4% F1, which is significantly higher than GNN-RAG [7] (65.2 ± 2.1%, p < 0.01). Finally, on paraphrase
+generalization using 1,000 GPT-4 generated variants, S-Path-RAG exhibits only a 2.8 ± 0.3% decrease in F1, compared
+to a 6.1 ± 0.5% drop for ToG+ChatGPT [47] (p < 0.01). Overall, the consistently small performance degradation
+across settings supports the robustness of our soft scoring and verification pipeline.
+4.11 Large-Scale Knowledge Graph Evaluation
+We evaluate the scalability of S-Path-RAG on web-scale graphs using OGB WikiKG 2.0, which contains over 17M
+edges and 2.5M entities. The study emphasizes computational cost and memory efficiency under large graphs, including
+regimes with |E| > 100M triples. Path enumeration follows O(K ·
+¯ℓ · d), where K is the number of candidate paths
+capped at 200, ¯ℓ = 2.8 ± 0.3 is the average path length, and d = 256 is the embedding dimension. Incremental GNN
+updates together with caching yield sub-linear memory growth, and the peak memory increases by only 0.32× when
+scaling from 1M to 100M edges. Runtime scales close to linearly in practice, with latency fitting T ∝ |E|
+0.35 and
+R2 = 0.98. This behavior is supported by a hybrid retrieval pipeline that combines weighted k-shortest path search,
+beam search, and constrained random walks. Even on the largest graphs, peak GPU memory stays below 12.8 GB,
+indicating an efficient trade-off between resource usage and predictive quality. As shown in Table 5, S-Path-RAG
+achieves the best accuracy with substantially fewer parameters.
+5 Conclusion
+We present S-Path-RAG, a retrieval and reasoning framework that integrates topology-aware graph search, semantic
+guidance, and compact latent fusion to enhance multi-hop question answering over knowledge graphs. It addresses
+11
+S-Path-RAG
+key challenges in KGQA, including locating relevant multi-hop evidence, filtering out LLM-plausible but unsupported
+paths, and efficiently presenting structured evidence to language models. The system ranks semantically weighted
+paths, suppresses false positives via a verification pipeline, injects latent paths through cross-attention, and iteratively
+refines retrieval via model-guided graph edits. Experiments on standard benchmarks, supported by ablation and
+attention diagnostics, demonstrate consistent improvements in accuracy, coverage, and token efficiency over strong
+baselines. S-Path-RAG also supports flexible tuning under constrained LLM-call budgets, making it suitable for
+scalable and cost-sensitive applications. Beyond performance, the framework offers interpretability through path-level
+diagnostics and modularity for integration with diverse graph encoders and LLM backbones. Future directions include
+scaling to web-scale graphs through distributed and hierarchical retrieval, improving graph editing, and incorporating
+human-in-the-loop verification for reliability and control.
+References
+[1] Hugo Touvron, Louis Martin, Kevin Stone, Peter Albert, Amjad Almahairi, Yasmine Babaei, Nikolay Bashlykov,
+Soumya Batra, Prajjwal Bhargava, Shruti Bhosale, et al. Llama 2: Open foundation and fine-tuned chat models.
+arXiv preprint arXiv:2307.09288, 2023.
+[2] Yuhan Li, Peisong Wang, Xiao Zhu, Aochuan Chen, Haiyun Jiang, Deng Cai, Victor W Chan, and Jia Li. Glbench:
+A comprehensive benchmark for graph with large language models. Advances in Neural Information Processing
+Systems, 37:42349–42368, 2024.
+[3] Qiming Wu, Zichen Chen, Will Corcoran, Misha Sra, and Ambuj K Singh. Grapheval36k: Benchmarking coding
+and reasoning capabilities of large language models on graph datasets. arXiv preprint arXiv:2406.16176, 2024.
+[4] Shirui Pan, Linhao Luo, Yufei Wang, Chen Chen, Jiapu Wang, and Xindong Wu. Unifying large language models
+and knowledge graphs: A roadmap. IEEE Transactions on Knowledge and Data Engineering, 36(7):3580–3599,
+2024.
+[5] Ziwei Chai, Tianjie Zhang, Liang Wu, Kaiqiao Han, Xiaohai Hu, Xuanwen Huang, and Yang Yang. Graphllm:
+Boosting graph reasoning ability of large language model. arXiv preprint arXiv:2310.05845, 2023.
+[6] Tian Yu, Shaolei Zhang, and Yang Feng. Auto-rag: Autonomous retrieval-augmented generation for large language
+models. arXiv preprint arXiv:2411.19443, 2024.
+[7] Costas Mavromatis and George Karypis. Gnn-rag: Graph neural retrieval for large language model reasoning.
+arXiv preprint arXiv:2405.20139, 2024.
+[8] Ge Zhang, Mohammad Ali Alomrani, Hongjian Gu, Jiaming Zhou, Yaochen Hu, Bin Wang, Qun Liu, Mark
+Coates, Yingxue Zhang, and Jianye Hao. Path-of-thoughts: Extracting and following paths for robust relational
+reasoning with large language models. arXiv preprint arXiv:2412.17963, 2024.
+[9] Jiabin Tang, Yuhao Yang, Wei Wei, Lei Shi, Lixin Su, Suqi Cheng, Dawei Yin, and Chao Huang. Graphgpt: Graph
+instruction tuning for large language models. In Proceedings of the 47th International ACM SIGIR Conference on
+Research and Development in Information Retrieval, pages 491–500, 2024.
+[10] Cehao Yang, Xiaojun Wu, Xueyuan Lin, Chengjin Xu, Xuhui Jiang, Yuanliang Sun, Jia Li, Hui Xiong, and Jian
+Guo. Graphsearch: An agentic deep searching workflow for graph retrieval-augmented generation. arXiv preprint
+arXiv:2509.22009, 2025.
+[11] Zhengxiao Du, Chang Zhou, Jiangchao Yao, Teng Tu, Letian Cheng, Hongxia Yang, Jingren Zhou, and Jie
+Tang. Cogkr: Cognitive graph for multi-hop knowledge reasoning. IEEE Transactions on Knowledge and Data
+Engineering, 35(2):1283–1295, 2021.
+[12] Zihan Hu, Jiuxiang You, Zhenguo Yang, Xiaoping Li, Haoran Xie, Qing Li, and Wenyin Liu. A multi-hop graph
+reasoning network for knowledge-based vqa. ACM Transactions on Intelligent Systems and Technology, 16(3):
+1–23, 2025.
+[13] Jialin Chen, Houyu Zhang, Seongjun Yun, Alejandro Mottini, Rex Ying, Xiang Song, Vassilis N Ioannidis, Zheng
+Li, and Qingjun Cui. Gril: Knowledge graph retrieval-integrated learning with large language models. arXiv
+preprint arXiv:2509.16502, 2025.
+[14] Costas Mavromatis, Soji Adeshina, Vassilis N Ioannidis, Zhen Han, Qi Zhu, Ian Robinson, Bryan Thompson,
+Huzefa Rangwala, and George Karypis. Byokg-rag: Multi-strategy graph retrieval for knowledge graph question
+answering. arXiv preprint arXiv:2507.04127, 2025.
+12
+S-Path-RAG
+[15] Junqi Gao, Xiang Zou, YIng Ai, Dong Li, Yichen Niu, Biqing Qi, and Jianxing Liu. Graph counselor: Adaptive
+graph exploration via multi-agent synergy to enhance llm reasoning. arXiv preprint arXiv:2506.03939, 2025.
+[16] Zhentao Xu, Mark Jerome Cruz, Matthew Guevara, Tie Wang, Manasi Deshpande, Xiaofeng Wang, and Zheng Li.
+Retrieval-augmented generation with knowledge graphs for customer service question answering. In Proceedings
+of the 47th international ACM SIGIR conference on research and development in information retrieval, pages
+2905–2909, 2024.
+[17] Jasper Linders and Jakub M Tomczak. Knowledge graph-extended retrieval augmented generation for question
+answering. arXiv preprint arXiv:2504.08893, 2025.
+[18] Zhongze Luo, Weixuan Wan, Qizhi Zheng, Yanhong Bai, Jingyun Sun, Jian Wang, and Dan Wang. Kg2qa:
+Knowledge graph-enhanced retrieval-augmented generation for communication standards question answering.
+arXiv preprint arXiv:2506.07037, 2025.
+[19] Piyushkumar Patel. Graph-enhanced retrieval-augmented question answering for e-commerce customer support.
+arXiv preprint arXiv:2509.14267, 2025.
+[20] Xiaoxin He, Yijun Tian, Yifei Sun, Nitesh Chawla, Thomas Laurent, Yann LeCun, Xavier Bresson, and Bryan
+Hooi. G-retriever: Retrieval-augmented generation for textual graph understanding and question answering.
+Advances in Neural Information Processing Systems, 37:132876–132907, 2024.
+[21] Anna Osipjan, Hanieh Khorashadizadeh, Akasha-Leonie Kessel, Sven Groppe, and Jinghua Groppe. Graphtrace:
+A modular retrieval framework combining knowledge graphs and large language models for multi-hop question
+answering. Computers, 14(9):382, 2025.
+[22] Mufei Li, Siqi Miao, and Pan Li. Simple is effective: The roles of graphs and large language models in
+knowledge-graph-based retrieval-augmented generation. arXiv preprint arXiv:2410.20724, 2024.
+[23] Guangyi Liu, Yongqi Zhang, Yong Li, and Quanming Yao. Dual reasoning: A gnn-llm collaborative framework
+for knowledge graph question answering. arXiv preprint arXiv:2406.01145, 2024.
+[24] Shijie Wang, Jiani Huang, Zhikai Chen, Yu Song, Wenzhuo Tang, Haitao Mao, Wenqi Fan, Hui Liu, Xiaorui
+Liu, Dawei Yin, et al. Graph machine learning in the era of large language models (llms). ACM Transactions on
+Intelligent Systems and Technology, 16(5):1–40, 2025.
+[25] Zulun Zhu, Tiancheng Huang, Kai Wang, Junda Ye, Xinghe Chen, and Siqiang Luo. Graph-based approaches and
+functionalities in retrieval-augmented generation: A comprehensive survey. arXiv preprint arXiv:2504.10499,
+2025.
+[26] Qinggang Zhang, Shengyuan Chen, Yuanchen Bei, Zheng Yuan, Huachi Zhou, Zijin Hong, Hao Chen, Yilin Xiao,
+Chuang Zhou, Yi Chang, et al. A survey of graph retrieval-augmented generation for customized large language
+models. arXiv preprint arXiv:2501.13958, 2025.
+[27] Boyu Chen, Zirui Guo, Zidan Yang, Yuluo Chen, Junze Chen, Zhenghao Liu, Chuan Shi, and Cheng Yang. Pathrag:
+Pruning graph-based retrieval augmented generation with relational paths. arXiv preprint arXiv:2502.14902,
+2025.
+[28] Muzhi Li, Jinhu Qi, Yihong Wu, Minghao Zhao, Liheng Ma, Yifan Li, Xinyu Wang, Yingxue Zhang, Hofung Leung, and Irwin King. From evidence to trajectory: Abductive reasoning path synthesis for training
+retrieval-augmented generation agents. arXiv preprint arXiv:2509.23071, 2025.
+[29] Haoran Luo, Guanting Chen, Qika Lin, Yikai Guo, Fangzhi Xu, Zemin Kuang, Meina Song, Xiaobao Wu, Yifan
+Zhu, Luu Anh Tuan, et al. Graph-r1: Towards agentic graphrag framework via end-to-end reinforcement learning.
+arXiv preprint arXiv:2507.21892, 2025.
+[30] Yingxu Wang, Shiqi Fan, Mengzhu Wang, Siyang Gao, Siwei Liu, and Nan Yin. Dynamically adaptive reasoning
+via llm-guided mcts for efficient and context-aware kgqa. arXiv preprint arXiv:2508.00719, 2025.
+[31] Alexander Miller, Adam Fisch, Jesse Dodge, Amir-Hossein Karimi, Antoine Bordes, and Jason Weston. Key-value
+memory networks for directly reading documents. arXiv preprint arXiv:1606.03126, 2016.
+[32] Apoorv Saxena, Aditay Tripathi, and Partha Talukdar. Improving multi-hop question answering over knowledge
+graphs using knowledge base embeddings. In Proceedings of the 58th annual meeting of the association for
+computational linguistics, pages 4498–4507, 2020.
+13
+S-Path-RAG
+[33] Jiaxin Shi, Shulin Cao, Lei Hou, Juanzi Li, and Hanwang Zhang. Transfernet: An effective and transparent
+framework for multi-hop question answering over relation graph. arXiv preprint arXiv:2104.07302, 2021.
+[34] Priyanka Sen, Amir Saffari, and Armin Oliya. Expanding end-to-end question answering on differentiable
+knowledge graphs with intersection. arXiv preprint arXiv:2109.05808, 2021.
+[35] Haitian Sun, Bhuwan Dhingra, Manzil Zaheer, Kathryn Mazaitis, Ruslan Salakhutdinov, and William W Cohen.
+Open domain question answering using early fusion of knowledge bases and text. arXiv preprint arXiv:1809.00782,
+2018.
+[36] Haitian Sun, Tania Bedrax-Weiss, and William W Cohen. Pullnet: Open domain question answering with iterative
+retrieval on knowledge bases and text. arXiv preprint arXiv:1904.09537, 2019.
+[37] Gaole He, Yunshi Lan, Jing Jiang, Wayne Xin Zhao, and Ji-Rong Wen. Improving multi-hop knowledge base
+question answering by learning intermediate supervision signals. In Proceedings of the 14th ACM international
+conference on web search and data mining, pages 553–561, 2021.
+[38] Jing Zhang, Xiaokang Zhang, Jifan Yu, Jian Tang, Jie Tang, Cuiping Li, and Hong Chen. Subgraph retrieval
+enhanced model for multi-hop knowledge base question answering. arXiv preprint arXiv:2202.13296, 2022.
+[39] Mattia Atzeni, Jasmina Bogojeska, and Andreas Loukas. Sqaler: Scaling question answering by decoupling
+multi-hop and logical reasoning. Advances in Neural Information Processing Systems, 34:12587–12599, 2021.
+[40] Jinhao Jiang, Kun Zhou, Wayne Xin Zhao, and Ji-Rong Wen. Unikgqa: Unified retrieval and reasoning for solving
+multi-hop question answering over knowledge graph. arXiv preprint arXiv:2212.00959, 2022.
+[41] Xiaotong Ye, Ling Xiao, Chi Zhang, and Toshihiko Yamasaki. E-rearev: Adaptive reasoning for question
+answering over incomplete knowledge graphs by edge and meaning extensions. In International Conference on
+Applications of Natural Language to Information Systems, pages 85–95. Springer, 2024.
+[42] Hyung Won Chung, Le Hou, Shayne Longpre, Barret Zoph, Yi Tay, William Fedus, Yunxuan Li, Xuezhi Wang,
+Mostafa Dehghani, Siddhartha Brahma, et al. Scaling instruction-finetuned language models. Journal of Machine
+Learning Research, 25(70):1–53, 2024.
+[43] Rohan Taori, Ishaan Gulrajani, Tianyi Zhang, Yann Dubois, Xuechen Li, Carlos Guestrin, Percy Liang, and
+Tatsunori B Hashimoto. Stanford alpaca: An instruction-following llama model, 2023.
+[44] Xiao Long, Liansheng Zhuang, Aodi Li, Minghong Yao, and Shafei Wang. Eperm: An evidence path enhanced
+reasoning model for knowledge graph question and answering. In Proceedings of the AAAI Conference on
+Artificial Intelligence, volume 39, pages 12282–12290, 2025.
+[45] Keheng Wang, Feiyu Duan, Sirui Wang, Peiguang Li, Yunsen Xian, Chuantao Yin, Wenge Rong, and Zhang
+Xiong. Knowledge-driven cot: Exploring faithful reasoning in llms for knowledge-intensive question answering.
+arXiv preprint arXiv:2308.13259, 2023.
+[46] Tianle Li, Xueguang Ma, Alex Zhuang, Yu Gu, Yu Su, and Wenhu Chen. Few-shot in-context learning for
+knowledge base question answering. arXiv preprint arXiv:2305.01750, 2023.
+[47] Jiashuo Sun, Chengjin Xu, Lumingyuan Tang, Saizhuo Wang, Chen Lin, Yeyun Gong, Lionel M Ni, Heung-Yeung
+Shum, and Jian Guo. Think-on-graph: Deep and responsible reasoning of large language model on knowledge
+graph. arXiv preprint arXiv:2307.07697, 2023.
+[48] Longquan Jiang, Junbo Huang, Cedric Möller, and Ricardo Usbeck. Ontology-guided, hybrid prompt learning for
+generalization in knowledge graph question answering. arXiv preprint arXiv:2502.03992, 2025.
+[49] Jinyeop Song, Song Wang, Julian Shun, and Yada Zhu. Efficient and transferable agentic knowledge graph rag via
+reinforcement learning. arXiv preprint arXiv:2509.26383, 2025.
+[50] Weihua Hu, Matthias Fey, Marinka Zitnik, Yuxiao Dong, Hongyu Ren, Bowen Liu, Michele Catasta, and Jure
+Leskovec. Open graph benchmark: Datasets for machine learning on graphs. Advances in neural information
+processing systems, 33:22118–22133, 2020.
+[51] Antoine Bordes, Nicolas Usunier, Alberto Garcia-Duran, Jason Weston, and Oksana Yakhnenko. Translating
+embeddings for modeling multi-relational data. Advances in neural information processing systems, 26, 2013.
+14
+S-Path-RAG
+[52] Théo Trouillon, Johannes Welbl, Sebastian Riedel, Éric Gaussier, and Guillaume Bouchard. Complex embeddings
+for simple link prediction. In International conference on machine learning, pages 2071–2080. PMLR, 2016.
+[53] Zhiqing Sun, Zhi-Hong Deng, Jian-Yun Nie, and Jian Tang. Rotate: Knowledge graph embedding by relational
+rotation in complex space. arXiv preprint arXiv:1902.10197, 2019.
+[54] Linlin Chao, Jianshan He, Taifeng Wang, and Wei Chu. Pairre: Knowledge graph embeddings via paired relation
+vectors. arXiv preprint arXiv:2011.03798, 2020.
+[55] Long Yu, Zhicong Luo, Huanyong Liu, Deng Lin, Hongzhu Li, and Yafeng Deng. Triplere: Knowledge graph
+embeddings via tripled relation vectors. arXiv preprint arXiv:2209.08271, 2022.
+[56] Yongqi Zhang, Quanming Yao, and James T Kwok. Bilinear scoring function search for knowledge graph learning.
+IEEE transactions on pattern analysis and machine intelligence, 45(2):1458–1473, 2022.
+[57] Kristina Toutanova, Danqi Chen, Patrick Pantel, Hoifung Poon, Pallavi Choudhury, and Michael Gamon. Representing text for joint embedding of text and knowledge bases. In Proceedings of the 2015 conference on empirical
+methods in natural language processing, pages 1499–1509, 2015.
+[58] Ke Liang, Yue Liu, Hao Li, Lingyuan Meng, Suyuan Liu, Siwei Wang, Sihang Zhou, and Xinwang Liu. Clustering
+then propagation: Select better anchors for knowledge graph embedding. Advances in Neural Information
+Processing Systems, 37:9449–9473, 2024.
+[59] Scott Wen-tau Yih, Ming-Wei Chang, Xiaodong He, and Jianfeng Gao. Semantic parsing via staged query graph
+generation: Question answering with knowledge base. In Proceedings of the Joint Conference of the 53rd Annual
+Meeting of the ACL and the 7th International Joint Conference on Natural Language Processing of the AFNLP,
+2015.
+[60] Alon Talmor and Jonathan Berant. The web as a knowledge-base for answering complex questions. arXiv preprint
+arXiv:1803.06643, 2018.
+[61] Yuyu Zhang, Hanjun Dai, Zornitsa Kozareva, Alexander Smola, and Le Song. Variational reasoning for question
+answering with knowledge graph. In Proceedings of the AAAI conference on artificial intelligence, volume 32,
+2018.
+[62] Patrick Lewis, Ethan Perez, Aleksandra Piktus, Fabio Petroni, Vladimir Karpukhin, Naman Goyal, Heinrich
+Küttler, Mike Lewis, Wen-tau Yih, Tim Rocktäschel, et al. Retrieval-augmented generation for knowledgeintensive nlp tasks. Advances in neural information processing systems, 33:9459–9474, 2020.
+[63] Diego Sanmartin. Kg-rag: Bridging the gap between knowledge and creativity. arXiv preprint arXiv:2405.12035,
+2024.
+[64] Hanieh Khorashadizadeh, Sanju Tiwari, Farah Benamara, Nandana Mihindukulasooriya, Jinghua Groppe, Soror
+Sahri, Morteza Ezzabady, Frédéric Ieng, and Sven Groppe. Ecorag: A multi-hop economic qa benchmark for
+retrieval augmented generation using knowledge graphs. In International Conference on Applications of Natural
+Language to Information Systems, pages 163–173. Springer, 2025.
+A Case Studies and Error Diagnosis
+We analyze S-PATH-RAG via case studies and error diagnosis, demonstrating stable 3–4 hop multi-hop reasoning and
+effective ambiguity resolution through soft path scoring and diagnostic graph updates by πmap; failure analysis of 200
+cases from WebQSP and CWQ shows most errors are implementation-level and repairable, while remaining failures
+arise from limited retrieval depth (Table 9, Sec. A.1).
+A.1 From Failure to Success: a Step-by-Step Trace
+We illustrate the corrective dynamics of S-PATH-RAG using a representative example from CWQ, highlighting how
+diagnostic feedback guides retrieval refinement. This correction is achieved within two retrieval rounds and a single
+graph update, consuming 312 tokens. Across inspected cases, the first diagnostic-guided update results in a median F1
+improvement of 8.4 percentage points.
+15
+S-Path-RAG
+Table 6: Retrieval performance on the converging dataset by hop count. The table reports MRR, MAP, and Hit@10 for
+questions requiring four to eight reasoning hops. Best results are shown in bold. S-Path-RAG consistently outperforms
+all baselines, with larger margins as the hop count increases.
+Hop Count Q/A Count Naive RAG[62] Naive RAG+Subquery Hybrid RAG Rerank RAG Naive GraphRAG KG RAG[63] GraphTrace[21] S-Path-RAG
+MRR
+4 1 0.5000 0.5000 0.3333 0.5000 0.0000 0.0000 0.2000 0.2800
+5 2 0.7500 0.2667 0.3750 0.5000 0.0000 0.0000 0.7500 0.8200
+6 23 0.4094 0.4650 0.5345 0.4301 0.0605 0.0336 0.5765 0.6500
+7 47 0.3482 0.3501 0.3055 0.2889 0.0607 0.1606 0.5377 0.6200
+8 17 0.2196 0.2908 0.1849 0.1737 0.0580 0.0470 0.1960 0.2700
+MAP
+4 1 0.1250 0.2500 0.0833 0.2083 0.0000 0.0000 0.1056 0.1800
+5 2 0.1900 0.1517 0.1083 0.2429 0.0000 0.0000 0.3100 0.3800
+6 23 0.1250 0.2073 0.1597 0.1366 0.0187 0.0072 0.3276 0.4000
+7 47 0.0677 0.1078 0.0591 0.0714 0.0145 0.0285 0.2433 0.3200
+8 17 0.0452 0.0940 0.0402 0.0322 0.0196 0.0064 0.0667 0.1300
+Hit@10
+4 1 1.0000 1.0000 1.0000 1.0000 0.0000 0.0000 1.0000 1.0000
+5 2 1.0000 1.0000 1.0000 1.0000 0.0000 0.0000 1.0000 1.0000
+6 23 0.9565 0.9130 0.9565 0.9565 0.3913 0.1739 1.0000 1.0000
+7 47 0.7660 0.8936 0.7447 0.8511 0.2128 0.3617 0.8511 0.9200
+8 17 0.5882 0.7647 0.5294 0.5882 0.2941 0.1176 0.5882 0.7000
+Table 7: Retrieval performance on the divergent dataset by hop count. The table reports MRR, MAP, and Hit@10 for
+questions requiring four to eight reasoning hops. Best results are highlighted in bold. S-Path-RAG shows consistent
+gains, particularly for more complex multi-hop queries.
+Hop Count Q/A Count Naive RAG[62] Naive RAG+Subquery Hybrid RAG Rerank RAG Naive GraphRAG KG RAG[63] GraphTrace[21] S-Path-RAG
+MRR
+4 1 0.2500 0.5000 0.2500 0.2500 0.0000 0.0000 0.2000 0.2800
+5 10 0.2917 0.2010 0.3617 0.3017 0.0324 0.1091 0.3169 0.4000
+6 70 0.4433 0.4037 0.3993 0.3689 0.0148 0.0798 0.4356 0.5200
+7 8 0.3937 0.2661 0.3762 0.2958 0.0104 0.0114 0.3721 0.4700
+8 1 1.0000 1.0000 0.5000 0.5000 0.0909 1.0000 0.5000 0.6000
+MAP
+4 1 0.0625 0.1250 0.0625 0.0625 0.0000 0.0000 0.2339 0.3000
+5 10 0.1010 0.0813 0.1310 0.0913 0.0090 0.0218 0.1377 0.2200
+6 70 0.1060 0.1233 0.0985 0.0943 0.0035 0.0133 0.1797 0.2600
+7 8 0.0836 0.0704 0.0716 0.0703 0.0015 0.0031 0.1650 0.2400
+8 1 0.1750 0.3438 0.1125 0.1994 0.0968 0.1250 0.2396 0.3200
+Hit@10
+4 1 1.0000 1.0000 1.0000 1.0000 0.0000 0.0000 1.0000 1.0000
+5 10 0.7000 0.8000 0.7000 0.9000 0.1000 0.1000 0.8000 0.9500
+6 70 0.8000 0.8143 0.8143 0.8143 0.0571 0.1857 0.7857 0.8900
+7 8 0.8750 1.0000 0.8750 1.0000 0.0000 0.0000 0.8750 1.0000
+8 1 1.0000 1.0000 1.0000 1.0000 0.0000 1.0000 1.0000 1.0000
+Question
+Which screenwriter of the 2012 film Argo was born in a city that also hosted the 1976 Summer
+Olympics?
+The entity linker seeds Argo_(2012_film), and the highest-scoring chain Argo → Chris Terrio → Boston leads to an
+initial prediction of “Boston” with confidence 0.51, accompanied by uncertainty about its hosting of the 1976 Summer
+Olympics; πmap maps this uncertainty to the query (Boston, host_event, 1976_Summer_Olympics), whose negative
+result down-weights the path, after which re-ranking promotes Argo → Chris Terrio → New York City and the model
+outputs “New York City” with confidence 0.83, yielding the correct answer.
+B Iterative Retrieval Behavior
+Figure 5 tracks evolution across retrieval rounds. Successful queries show confidence saturation by round 2-3, while
+failing cases exhibit oscillation or divergence. Adaptive retrieval reduces redundant computation by 47% compared to
+fixed expansion strategies.
+C High-hop Retrieval on EcoRAG
+To verify the scalability of S-Path-RAG under deeper reasoning, we reuse the EcoRAG benchmark[64] that contains up
+to eight-hop questions and report MRR, MAP and Hit@10 for each hop in Tables 6–8. Across all three graph topologies
+16
+S-Path-RAG
+Table 8: Retrieval performance on the linear dataset by hop count. The table reports MRR, MAP, and Hit@10 for
+questions requiring four to six reasoning hops. Best results are highlighted in bold. S-Path-RAG remains superior
+across hop levels.
+Hop Count Q/A Count Naive RAG[62] Naive RAG+Subquery Hybrid RAG Rerank RAG Naive GraphRAG KG RAG[63] GraphTrace[21] S-Path-RAG
+MRR
+4 4 0.2500 0.3542 0.1542 0.3208 0.0625 0.0000 0.4750 0.5500
+5 6 0.3667 0.2750 0.3111 0.3472 0.0833 0.1667 0.3806 0.4800
+6 77 0.3498 0.3371 0.3364 0.3292 0.0916 0.0480 0.4475 0.5300
+MAP
+4 4 0.0625 0.1522 0.0385 0.1576 0.0156 0.0000 0.3552 0.4200
+5 6 0.0978 0.0645 0.0717 0.0885 0.0167 0.0333 0.1083 0.1800
+6 77 0.0754 0.0893 0.0811 0.0788 0.0208 0.0090 0.1589 0.2300
+Hit@10
+4 4 1.0000 1.0000 0.7500 1.0000 0.2500 0.0000 1.0000 1.0000
+5 6 0.6667 0.6667 0.6667 0.8333 0.1667 0.1667 0.8333 0.9000
+6 77 0.7922 0.7403 0.8182 0.8442 0.1429 0.0909 0.7792 0.8600
+Table 9: Error categories identified from 200 failure cases and their estimated repairability.
+Error Type Proportion Underlying Cause Fixable
+■ Entity-link drift 34 % Ambiguous or incomplete aliases Yes
+■ Path over-scoring 28 % Semantically plausible but incorrect chains Yes
+■ Premature termination 22 % Over-confident stopping criterion Yes
+■ Excessive path length 16 % Hop limit exceeded (L=4) No
+S-Path-RAG consistently outperforms the compared pipelines, confirming that semantic path weighting retains its
+advantage when query complexity increases.
+D Path-shape Analysis
+We group gold reasoning chains into linear, convergent, and divergent motifs using deterministic BFS-based criteria on
+branching factor b and in-degree d, and report per-motif F1 on WebQSP and CWQ, where S-Path-RAG consistently
+outperforms the strongest baseline RoG across all motifs (Table 10), with convergent chains remaining the most
+challenging and benefiting most from verification; related enumerator and budget effects are analyzed in Section E.
+Table 10: Per-shape F1 on WebQSP and CWQ. Bold: best.
+Motif Ratio % S-Path-RAG RoG ∆
+Linear 62.3 79.1 71.4 +7.7
+Convergent 22.5 78.6 70.2 +8.4
+Divergent 15.2 75.9 68.8 +7.1
+E Component-wise Path Generation and Budget Saturation
+Using controlled experiments on the CWQ validation set, we find that removing any single path enumerator degrades
+F1, indicating complementary coverage, and that increasing the candidate budget yields diminishing returns with higher
+cost (Table 11), so the default setting already saturates useful evidence.
+F Path-Latent Dimension Selection
+We vary the path-latent dimension dp ∈ {16, 32, 64} while fixing the total injected parameters. Figure 7 shows that
+32D offers the best F1/token trade-off; 64D improves F1 by 0.2 but increases token cost by 8%, hence we keep 32D.
+17
+S-Path-RAG
+Figure 5: Per-round diagnostics: subgraph size, path count, and answer confidence.
+Figure 6: Hyperparameter sensitivity analysis.
+G Weight-sensitivity analysis
+To disentangle the respective roles of topology-aware cues and semantic evidence, we conduct a coefficient sweep over
+α, β, γ in Eq. (1), while keeping λsem fixed at 0.7. Figure 8 summarizes the resulting F1 on CWQ. Using only the
+structural term (α=1, β=γ=0) attains 73.1, whereas relying solely on semantic similarity (β=1) reaches 74.8. The
+best trade-off appears with a mixed setting
+(α=0.4, β=0.4, γ=0.2), which achieves 78.2, indicating that the hybrid weighting is essential rather than a trivial
+aggregation of signals.
+H Hyperparameter Sensitivity
+We investigate the influence of crucial hyperparameters through comprehensive ablation studies, each conducted over
+five runs with error bars representing 95% bootstrap confidence intervals. As shown in Figure 6, optimal performance is
+observed at τ = 0.2 and λsem = 0.70, with the latter yielding a statistically significant 2.3% improvement in F1 score
+compared to λsem = 0.50 (p = 0.006, paired t-test). Regarding the path retrieval parameter K, performance plateaus
+beyond 60 paths. Overall, the system exhibits remarkable stability, maintaining at least 90% of peak performance across
+±25% variation in all hyperparameters, which indicates robust operational characteristics.
+18
+S-Path-RAG
+Table 11: Ablation study on path-generation components and candidate budget K on CWQ. Bold: best.
+Setting k-shortest Beam Random F1 Latency (ms)
+Full S-Path-RAG ✓ ✓ ✓ 78.2 3.8
+w/o k-shortest ✓ ✓ 75.3 3.2
+w/o beam ✓ ✓ 76.1 3.5
+w/o random ✓ ✓ 74.9 3.1
+K=50 ✓ ✓ ✓ 77.4 2.9
+K=200 ✓ ✓ ✓ 78.2 3.8
+K=400 ✓ ✓ ✓ 78.3 5.7
+Figure 7: F1 and token cost v.s. path-latent dimension; 32D is Pareto-optimal.
+Figure 8: CWQ F1 as a function of edge-weight coefficients. The optimum occurs in the hybrid regime and peaks at
+78.2.
+19
